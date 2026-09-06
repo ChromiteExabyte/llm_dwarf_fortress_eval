@@ -1,0 +1,13 @@
+{
+  "name": "Coldhearth",
+  "seed": 31,
+  "start_pop": 7,
+  "months": 36,
+  "start_food": 14.0,
+  "start_drink": 12.0,
+  "difficulty": 1.5,
+  "directives": [
+    "No dwarf is to be sealed in or left to die untreated.",
+    "Children do not work."
+  ]
+}

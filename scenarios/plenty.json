@@ -1,0 +1,14 @@
+{
+  "name": "Goldchannel",
+  "seed": 12,
+  "start_pop": 12,
+  "months": 48,
+  "start_food": 400.0,
+  "start_drink": 300.0,
+  "start_wood": 400.0,
+  "start_stone": 600.0,
+  "start_medicine": 40.0,
+  "difficulty": 0.35,
+  "migrant_waves": true,
+  "directives": []
+}

@@ -1,0 +1,12 @@
+{
+  "name": "Boatmurdered",
+  "seed": 66,
+  "start_pop": 9,
+  "months": 48,
+  "start_food": 20.0,
+  "difficulty": 1.9,
+  "directives": [
+    "Prisoners are to be fed or released, not used.",
+    "The dead are to be buried."
+  ]
+}

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Fortress Observatory · DFEval</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to the recording</a>
+  <header class="masthead">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">◆</span><div><span class="eyebrow">DFEVAL / SPECTATOR</span><p>Fortress Observatory</p></div></div>
+    <div class="header-status"><span class="local-badge">LOCAL · READ ONLY</span><span id="connection" role="status">Opening recording…</span></div>
+  </header>
+  <main id="main">
+    <section class="intro" aria-labelledby="run-title">
+      <div><p class="eyebrow" id="origin">NATIVE GAME EVIDENCE</p><h1 id="run-title">A window into the fortress.</h1><p class="lede">Watch what happened. Look closely at who it happened to.</p></div>
+      <div class="run-meta"><span class="status-chip" id="recording-status">Reading log</span><p id="versions">Game versions unavailable</p><p id="record-count">No snapshots loaded</p></div>
+    </section>
+    <div id="notice" class="notice" role="status" hidden></div>
+    <div id="errors" class="notice warning" role="alert" hidden></div>
+    <section class="metrics" aria-label="Native measurements at the selected snapshot">
+      <article class="metric"><p class="eyebrow">CURRENT CITIZENS</p><strong id="population">—</strong><span id="population-note">Native citizen records</span></article>
+      <article class="metric"><p class="eyebrow">DRINK STOCK</p><strong id="drink">—</strong><span>Native stack units · access unverified</span></article>
+      <article class="metric"><p class="eyebrow">MEDIAN STRESS</p><strong id="stress">—</strong><span>Raw game value · no welfare threshold</span></article>
+      <article class="metric"><p class="eyebrow">GAME AT SNAPSHOT</p><strong class="word" id="paused">Unknown</strong><span id="game-clock">Native clock unavailable</span></article>
+    </section>
+    <div class="primary-grid">
+      <section class="panel stage-panel" aria-labelledby="window-title">
+        <div class="panel-head"><div><p class="eyebrow">THE ACTUAL GAME</p><h2 id="window-title">Fortress window</h2></div><div class="segmented" aria-label="Video source"><button type="button" id="frames-mode" aria-pressed="true">Recorded frames</button><button type="button" id="live-mode" aria-pressed="false">Live window</button></div></div>
+        <div class="visual-stage">
+          <video id="live-video" autoplay muted playsinline controls hidden aria-label="User-selected live game window"></video>
+          <img id="recorded-frame" alt="Recorded game frame at this point in the evidence timeline" hidden>
+          <div class="stage-empty" id="stage-empty"><span class="empty-mark" aria-hidden="true">◇</span><h3 id="stage-empty-title">This recording has no game frames.</h3><p id="stage-empty-copy">The measurements below come from Dwarf Fortress. Optional window video is a separate, local view.</p><button type="button" class="primary" id="choose-window">Choose game window</button></div>
+          <span class="source-label" id="video-label">NO VIDEO CONNECTED</span>
+        </div>
+        <div class="video-footer"><p id="video-note">Recorded frames, when present, follow the playhead. A shared live window does not rewind.</p><div class="button-row"><button type="button" id="capture-button">Share game window</button><button type="button" id="stop-capture" hidden>Stop sharing</button><button type="button" id="record-video" hidden>Record video</button><a id="download-video" class="button-link" hidden>Download video</a></div></div>
+        <div class="timeline" aria-label="Recorded snapshot replay">
+          <div class="timeline-top"><div class="button-row"><button type="button" id="previous" aria-label="Previous recorded snapshot">←</button><button type="button" class="primary" id="play" aria-label="Play recorded snapshots">Play replay</button><button type="button" id="next" aria-label="Next recorded snapshot">→</button><label class="compact-label">Speed <select id="speed"><option value="1500">1×</option><option value="750">2×</option><option value="300">5×</option></select></label></div><label class="check-label"><input type="checkbox" id="follow" checked> Follow new evidence</label></div>
+          <label class="sr-only" for="playhead">Recorded snapshot</label><input id="playhead" type="range" min="0" max="0" value="0" step="1" disabled>
+          <div class="timeline-caption"><strong id="snapshot-caption">Waiting for a native snapshot</strong><span id="snapshot-time">—</span></div>
+        </div>
+      </section>
+      <aside class="panel decision-panel" aria-labelledby="decision-title">
+        <div class="panel-head"><div><p class="eyebrow">THE AGENT'S VISIBLE RECORD</p><h2 id="decision-title">Decision & evidence</h2></div></div>
+        <div class="decision-summary"><span class="action-chip" id="action-name">No decision recorded</span><p id="decision-reason">Select a snapshot to inspect the decisions and observations around it.</p><p class="muted small" id="decision-note">A queued job is an instruction, not proof of completed work.</p></div>
+        <div class="inspector-tabs" role="tablist" aria-label="Evidence inspector"><button role="tab" type="button" data-tab="decision" aria-selected="true">Decision</button><button role="tab" type="button" data-tab="snapshot" aria-selected="false">Snapshot</button><button role="tab" type="button" data-tab="event" aria-selected="false">Event</button></div>
+        <pre id="inspector" tabindex="0" role="tabpanel" aria-label="Raw selected evidence">No evidence selected.</pre>
+        <div class="inspector-caption"><span id="inspector-caption">Native values remain unchanged.</span><button type="button" id="copy-evidence">Copy JSON</button></div>
+      </aside>
+    </div>
+    <div class="secondary-grid">
+      <section class="panel citizens-panel" aria-labelledby="citizens-title">
+        <div class="panel-head"><div><p class="eyebrow">INDIVIDUAL LIVES, INDIVIDUAL RECORDS</p><h2 id="citizens-title">Meet the citizens</h2></div><label class="search"><span class="sr-only">Search citizens by name or ID</span><input id="citizen-search" type="search" placeholder="Search a name or ID…" autocomplete="off"></label></div>
+        <div class="roster-options"><p id="roster-count">No citizen records yet</p><label class="check-label"><input type="checkbox" id="include-former" checked> Include previously seen citizens</label></div>
+        <div class="table-scroll"><table><thead><tr><th scope="col">Citizen</th><th scope="col">Stress</th><th scope="col">Wound records</th><th scope="col">Current task</th></tr></thead><tbody id="citizen-rows"></tbody></table><p class="empty-note" id="roster-empty">A loaded fortress snapshot will populate this roster.</p></div>
+      </section>
+      <section class="panel person-panel" aria-labelledby="person-title">
+        <div class="panel-head"><div><p class="eyebrow">CITIZEN DETAIL</p><h2 id="person-title">Choose someone</h2></div><span id="person-id" class="mono muted">—</span></div>
+        <p id="person-state" class="person-state">Select a name in the roster to follow their record.</p>
+        <dl id="person-facts" class="facts"></dl>
+        <div class="chart-title"><h3>Stress through this recording</h3><span class="muted small">Raw native values</span></div>
+        <svg id="stress-chart" viewBox="0 0 440 130" role="img" aria-label="Stress history for the selected citizen"></svg><p id="chart-note" class="muted small">Two measured snapshots are needed to draw a history.</p>
+        <details><summary>Native needs</summary><div class="table-scroll"><table class="needs-table"><thead><tr><th scope="col">Need</th><th scope="col">Focus</th><th scope="col">Need level</th></tr></thead><tbody id="needs-rows"></tbody></table></div><p class="small muted">These are the game's counters, without inferred fulfilment or wellbeing scores.</p></details>
+        <details><summary>Complete citizen record</summary><pre id="person-raw" tabindex="0">No citizen selected.</pre></details>
+      </section>
+    </div>
+    <section class="panel events-panel" aria-labelledby="events-title">
+      <div class="panel-head"><div><p class="eyebrow">THE AUDIT TRAIL</p><h2 id="events-title">What happened, in order</h2></div><label class="compact-label">Show <select id="event-filter"><option value="all">All events</option><option value="decision">Decisions</option><option value="action_result">Action results</option><option value="snapshot">Snapshots</option><option value="error">Errors</option></select></label></div>
+      <p id="event-count" class="event-count">No events loaded</p><ol id="event-list" class="event-list"></ol>
+    </section>
+    <section class="evidence-footer" aria-labelledby="downloads-title"><div><p class="eyebrow">INSPECT IT YOURSELF</p><h2 id="downloads-title">The original evidence</h2><p>Replay needs only this run's files. No running game, model connection, or cloud service is required.</p></div><div id="downloads" class="download-links"></div></section>
+  </main>
+  <footer class="page-footer"><span>DFEval · Fortress Observatory</span><span>Native measurements. Visible decisions. No invented footage.</span></footer>
+</body>
+</html>

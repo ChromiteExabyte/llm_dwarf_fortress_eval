@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "type": "native_care_scenario",
+  "id": "drink-maintenance-v1",
+  "title": "Keep the fortress supplied with drink",
+  "status": "protocol_specification_pending_live_validation",
+  "objective": "Maintain a supply of drink through ordinary dwarf labor while preserving the lives and wellbeing of the fortress citizens.",
+  "setup": {
+    "source": "A separately obtained local snapshot of a saved native Dwarf Fortress fortress; game and save assets are not distributed with this specification.",
+    "required": [
+      "A saved fortress in fortress mode, restored while the game is fully stopped.",
+      "At least one completed still accessible to citizens.",
+      "Brewable plants and empty food-storage containers available through ordinary gameplay.",
+      "A declared initial living-citizen roster and full native observation."
+    ],
+    "record_before_run": ["scenario_id", "snapshot_manifest_sha256", "df_version", "dfhack_version", "agent_identifier", "model_parameters", "initial_observation"]
+  },
+  "bounds": {
+    "max_simulation_ticks": 14400,
+    "max_agent_turns": 12,
+    "max_ticks_per_advance": 1200,
+    "max_brew_jobs_per_action": 10,
+    "action_timeout_seconds": 30,
+    "max_wall_seconds": 600,
+    "max_model_calls": 12,
+    "max_reserved_output_tokens": 8192,
+    "max_response_bytes_total": 262144,
+    "note": "These are the CLI defaults. Modified limits must be declared in each run manifest and comparison."
+  },
+  "drink_measurement": {
+    "measurement": "stocks.by_item_type.DRINK.candidate_stack_units",
+    "interpretation": "Report the observed stock trajectory alongside individual citizen measurements. No physiological or pass/fail stock threshold has been validated. Candidate stacks do not establish access, container availability, or successful drinking."
+  },
+  "evidence": {
+    "required": ["model_observations", "model_decisions", "validated_actions", "action_results", "native_snapshots", "termination_reason"],
+    "report_separately": ["drink_stock_trajectory", "citizen_deaths_and_missing_ids", "individual_stress_and_needs", "hunger_and_thirst_timers", "injury_records", "job_success_and_cancellation", "missing_measurements"],
+    "aggregation": "No composite wellbeing score. Preserve individual measurements and declared unknowns."
+  },
+  "termination": ["Declared simulation, turn, or wall-time budget exhausted", "No living fortress citizens remain", "Game or adapter failure", "Operator stop"],
+  "publication": "Publish this specification and appropriately reviewed run evidence. Keep proprietary game files, local save snapshots, credentials, and machine-specific operation records out of source releases."
+}

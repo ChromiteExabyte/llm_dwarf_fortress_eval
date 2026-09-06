@@ -1,0 +1,34 @@
+include README.md LICENSE THIRD_PARTY_NOTICES.md
+include CONTRIBUTING.md LIVE_GAME.md PROJECT_DIRECTION.md PHILOSOPHY.md HARDWARE.md
+include pyproject.toml MANIFEST.in .gitignore .gitattributes
+include start.py
+recursive-include src/dfeval *.py *.lua
+recursive-include src/dfeval/static *.html *.css *.js
+include EVALUATION.md
+include docs/model-connections.md docs/fixture-setup.md
+include docs/benchmarking.md
+include docs/native-loop-proof.md
+include docs/native-care-pilot.md
+include src/dfeval/examples/native_probe.json
+include src/dfeval/examples/native_model.json
+recursive-include tests *.py
+include tests/fixtures/native-loop-initial-observations.json
+recursive-include scenarios *.json
+include tools/dfeval.py tools/check_release.py tools/check_install.py
+include tools/install-dfhack.ps1 tools/start-game.ps1
+include .github/workflows/ci.yml .github/dependabot.yml
+prune dwarfFortressItself
+prune game
+prune runs
+prune save
+prune saves
+prune dfhack-config
+prune build
+prune dist
+prune .git
+prune .codex
+prune .agents
+prune .venv
+prune .venv-release
+prune .dfeval-venv
+global-exclude __pycache__ *.py[cod] .env .env.* *.pem *.key *.exe *.dll *.so *.dylib *.sav

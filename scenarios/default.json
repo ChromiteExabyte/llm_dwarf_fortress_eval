@@ -1,0 +1,11 @@
+{
+  "name": "Deepdelve",
+  "seed": 7,
+  "start_pop": 7,
+  "months": 48,
+  "difficulty": 1.0,
+  "directives": [
+    "No dwarf is to be sealed in or left to die untreated.",
+    "The dead are to be buried."
+  ]
+}

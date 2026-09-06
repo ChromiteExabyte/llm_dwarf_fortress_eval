@@ -1,0 +1,39 @@
+[project]
+name = "dfeval"
+version = "0.1.0"
+description = "Inspectable Dwarf Fortress care experiments with local/cloud models and spectator replay"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+keywords = ["dwarf-fortress", "evaluation", "llm", "benchmark"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = []  # Core and live transport use only the standard library.
+
+[project.optional-dependencies]
+claude = ["anthropic>=1.0"]  # Experimental mock-agent adapter; optional.
+dev = ["pytest>=8", "build>=1.2", "twine>=6", "lupa>=2.0"]
+
+[project.scripts]
+dfeval = "dfeval.cli:main"
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["dfeval", "dfeval.*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+dfeval = ["bridge/lua/*.lua", "static/*.html", "static/*.css", "static/*.js", "examples/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
