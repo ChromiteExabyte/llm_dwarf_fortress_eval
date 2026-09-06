@@ -12,6 +12,7 @@ from dfeval.policies import ChatCompletionsPolicy, IdlePolicy
 
 
 FINISH = {"action": "finish", "reason": "Synthetic connection check received.", "notebook": ""}
+TRANSPORT_SECRET = "dfeval-private-error-sentinel-f18c64"
 
 
 def response(decision=FINISH, *, finish_reason="stop", usage=None):
@@ -79,17 +80,19 @@ def test_valid_brew_response_is_data_and_never_executed(tmp_path):
 @pytest.mark.parametrize("raw", [
     b"not JSON", response({**FINISH, "action": "shell"}), response(finish_reason="length"),
     response(usage={"completion_tokens": 100000}),
-    error.URLError("private underlying error"), TimeoutError("private timeout detail"),
-    error.HTTPError("https://provider.example", 401, "private credential", {}, io.BytesIO(b"private error body")),
+    error.URLError(TRANSPORT_SECRET + " underlying error"), TimeoutError(TRANSPORT_SECRET + " timeout detail"),
+    error.HTTPError("https://provider.example", 401, TRANSPORT_SECRET + " credential", {},
+                    io.BytesIO((TRANSPORT_SECRET + " error body").encode())),
 ])
 def test_connection_or_schema_failure_records_failure_without_retry(tmp_path, raw):
     policy, opener = local(raw)
-    out = tmp_path / "failed"
+    out = tmp_path / "private" / "failed"
     report = check_model(policy, output_dir=out)
     assert report["ok"] is False and report["decision"] is None
     assert report["error"] and report["actions_executed"] == 0
     assert len(opener.requests) == 1
-    assert "private" not in json.dumps(report)
+    assert TRANSPORT_SECRET not in json.dumps(report)
+    assert report["output_directory"] == str(out.resolve())
     assert json.loads((out / "model-check.json").read_text())["ok"] is False
 
 

@@ -4,13 +4,13 @@ import json
 
 import pytest
 
-from dfeval.comparison import (COMPARISON_FIELDS, _reported_fps, compare_runs,
+from dfeval.comparison import (COMPARISON_FIELDS, _evidence_json, _reported_fps, compare_runs,
                                initial_observation_fingerprint, render_comparison_report)
 from dfeval.experiment import ExperimentConfig, run_experiment
 from dfeval.live import PROTOCOL_VERSION
 from dfeval.model_observation import (MODEL_OBSERVATION_VERSION, model_input_bytes,
                                       project_observation, projection_contract)
-from dfeval.policies import IdlePolicy, json_bytes
+from dfeval.policies import DecisionError, IdlePolicy, json_bytes
 
 
 def snapshot(tick=100, drink=10):
@@ -360,11 +360,32 @@ def test_duplicate_directory_is_not_two_runs(tmp_path):
 
 
 @pytest.mark.parametrize("filename", ["manifest.json", "events.jsonl"])
-def test_excessively_nested_json_is_a_clean_evidence_error(tmp_path, filename):
+@pytest.mark.parametrize("depth", [64, 2000])
+def test_excessively_nested_json_is_a_clean_evidence_error(tmp_path, filename, depth):
     first, second = record(tmp_path / "a"), record(tmp_path / "b")
-    (second / filename).write_text('{"nested":' + '[' * 2000 + '0' + ']' * 2000 + '}\n')
+    (second / filename).write_text('{"nested":' + '[' * depth + '0' + ']' * depth + '}\n')
     with pytest.raises(ValueError, match="JSON nesting exceeds"):
         compare_runs([first, second])
+
+
+def test_evidence_json_accepts_the_inspection_depth_boundary():
+    value = _evidence_json("[" * 64 + "0" + "]" * 64)
+    for _ in range(64):
+        assert isinstance(value, list) and len(value) == 1
+        value = value[0]
+    assert value == 0
+
+
+def test_wrapped_decoder_recursion_keeps_the_evidence_depth_diagnostic(monkeypatch):
+    def limited_decoder(text):
+        try:
+            raise RecursionError("decoder recursion limit")
+        except RecursionError as exc:
+            raise DecisionError("invalid JSON") from exc
+
+    monkeypatch.setattr("dfeval.comparison.strict_json", limited_decoder)
+    with pytest.raises(ValueError, match="JSON nesting exceeds"):
+        _evidence_json("[]")
 
 
 def test_real_runner_output_contract_is_comparable_with_injected_offline_bridge(tmp_path):

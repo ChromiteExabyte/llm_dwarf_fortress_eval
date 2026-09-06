@@ -14,7 +14,7 @@ from .care import summarize_events
 from .live import PROTOCOL_VERSION
 from .model_observation import (MODEL_OBSERVATION_VERSION, ModelObservationError,
                                 model_input_bytes, project_observation, projection_contract)
-from .policies import json_bytes, strict_json
+from .policies import DecisionError, json_bytes, strict_json
 
 MAX_LOG_BYTES = 64 * 1024 * 1024
 COMPARISON_FIELDS = (
@@ -31,7 +31,14 @@ class _EvidenceDepthError(ValueError):
 
 
 def _evidence_json(text: str) -> Any:
-    value = strict_json(text)
+    try:
+        value = strict_json(text)
+    except DecisionError as exc:
+        # Older Python decoders can hit their recursion limit before our
+        # iterative depth check. strict_json preserves that cause explicitly.
+        if isinstance(exc.__cause__, RecursionError):
+            raise _EvidenceDepthError("JSON nesting exceeds the inspection limit") from None
+        raise
     pending = [(value, 0)]
     while pending:
         item, depth = pending.pop()

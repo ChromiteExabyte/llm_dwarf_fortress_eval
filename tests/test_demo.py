@@ -214,6 +214,48 @@ def test_serve_uses_temporary_native_recording_and_cleans_up_without_game_calls(
     assert not calls[0][0].exists()
 
 
+def directory_symlink(link, target):
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("Directory symbolic links are unavailable")
+
+
+@pytest.mark.parametrize("recording", ["model", "probe"])
+def test_serve_canonicalizes_its_owned_temp_directory_under_a_symlink(tmp_path, monkeypatch, recording):
+    real_parent = tmp_path / "real-temp"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-temp"
+    directory_symlink(linked_parent, real_parent)
+    monkeypatch.setattr("dfeval.demo.tempfile.tempdir", str(linked_parent))
+    exports = []
+
+    def serve(path, **kwargs):
+        exports.append(path)
+        assert path.is_relative_to(real_parent.resolve())
+        assert (path / "manifest.json").is_file()
+        assert load_run(path)["errors"] == []
+
+    monkeypatch.setattr("dfeval.viewer.serve_run", serve)
+    serve_demo(recording=recording)
+    assert len(exports) == 1 and not exports[0].exists()
+    assert list(real_parent.iterdir()) == []
+    assert linked_parent.is_symlink()
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_export_still_rejects_caller_supplied_symlink_destinations(tmp_path, nested):
+    target = tmp_path / "existing"
+    target.mkdir()
+    link = tmp_path / "redirect"
+    directory_symlink(link, target)
+    destination = link / "demo" if nested else link
+    with pytest.raises(ValueError, match="must not traverse symbolic links"):
+        write_demo(destination)
+    assert list(target.iterdir()) == []
+    assert link.is_symlink()
+
+
 def test_serve_cleanup_also_happens_on_viewer_failure(monkeypatch):
     directories = []
 

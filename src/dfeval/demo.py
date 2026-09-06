@@ -89,7 +89,9 @@ def serve_demo(port: int = 8765, open_browser: bool = False, *, recording: str =
     from .viewer import serve_run
 
     with tempfile.TemporaryDirectory(prefix="dfeval-recorded-evidence-") as temporary:
-        exported = write_demo(Path(temporary) / ("native-model-brewing" if recording == "model" else "native-probe"),
+        # Resolve the directory we just created: macOS temp roots can traverse
+        # /var -> /private/var. Keep write_demo strict for caller-supplied paths.
+        exported = write_demo(Path(temporary).resolve() / ("native-model-brewing" if recording == "model" else "native-probe"),
                               recording=recording)
         if recording == "model":
             print("Recorded local Qwen2.5 model: three brewing decisions, two native drink products totaling 50 units.")
