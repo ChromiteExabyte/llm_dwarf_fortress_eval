@@ -372,6 +372,13 @@ other game releases or identical unobserved simulation state.
 
 ## Current validation
 
+The latest [three-month experiment](native-care-season.md) completed 100,800
+ticks under a local Ollama model and both restored controls. The model and rule
+issued identical brewing actions on all 12 decisions, each producing 125 drink
+units. Its report includes derived data and measured throughput, with care-task
+validity and same-action replay variation still unresolved. The shorter checks
+below retain their original settings and outcomes.
+
 On 2026-09-05, a Windows DF 53.16 / DFHack 53.16-r1.1 idle-baseline probe requested
 a temporary cap of 1,000 and advanced exactly 137 ticks. Final pause and
 restoration of the original cap of 100 were confirmed. Its 0.672-second advance

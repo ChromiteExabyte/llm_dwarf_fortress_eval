@@ -9,6 +9,10 @@ include docs/model-connections.md docs/fixture-setup.md
 include docs/benchmarking.md
 include docs/native-loop-proof.md
 include docs/native-care-pilot.md
+include docs/native-care-season.md
+include docs/assets/native-care-season.svg
+include docs/data/native-care-season.json
+include docs/data/native-care-season.csv
 include src/dfeval/examples/native_probe.json
 include src/dfeval/examples/native_model.json
 recursive-include tests *.py

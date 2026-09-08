@@ -8,6 +8,11 @@ evaluation: people should be able to understand the experiment, run it, watch
 it, and inspect its evidence. Gameplay competence and dwarf wellbeing belong
 in the same account of what happened.
 
+**Current status: a working native brewing harness; care-task validation is
+pending.** The model-to-game loop and inspectable evidence are demonstrated.
+The current task has not established that its choices reliably distinguish good
+care from poor care. Broad fortress management remains unfinished.
+
 ## The experience
 
 A spectator should be able to answer:
@@ -88,6 +93,9 @@ indifference.
 | Comparison | Native summaries recomputed from events; recorded setup differences reported |
 | Local models and performance | Native Ollama and compatible local/cloud connections; recorded care, game throughput, and model timing exported as JSON, CSV, and Markdown |
 | Public demo | Actual local-model brewing episode with public decisions, native product receipts, raw citizen data, source hashes, and declared sanitization; earlier probe remains optional |
+| Care-task validity | Pending: no validated short positive control yet shows that a useful intervention improves a predefined native care endpoint relative to idle |
+| Native repeatability | Matching recorded starts and exact tick boundaries demonstrated; identical model/rule action sequences produced different care trajectories, with no reliable variability estimate yet |
+| Job outcomes | Queue acceptance and native product callbacks recorded; direct cancellation causes and complete job lifecycle evidence remain unbuilt |
 
 Local automated tests exercise these components with fixtures and fake bridges.
 The [native model evidence](docs/native-loop-proof.md) on 2026-09-05 now includes
@@ -108,9 +116,27 @@ in the completed paired report. The report flags its terminal error and recorded
 failure; it reports no changed starting state, versions, budgets, or recorded
 environment. The initial observations differ only in session bookkeeping.
 
-This is a prepared task with three allowed actions, not evidence of full-game
-mastery or a general model ranking. Installed Ollama integration remains
-unverified; the native model pair used llama.cpp.
+The later [native care season](docs/native-care-season.md) exercised Ollama with
+Qwen2.5-1.5B and separate idle/rule controls from the verified checkpoint. All
+three completed 100,800 native ticks with confirmed final pause and simulation
+cap restoration. The model made 12 accepted brewing decisions; five jobs had
+native drink products totaling 125 units. The rule control issued the same
+actions and also produced 125 units; idle produced none. Seven citizens remained
+alive in every run. Care measurements were retained, but this does not establish
+better care by the model.
+
+The model repeated an incorrect ingredient description, while the native queue
+and product receipts identified plant brewing. Matching action sequences and
+tick boundaries still led to different model/rule care trajectories. This is an
+observed repeatability gap, not a demonstrated cause or a measured noise floor.
+The 32,768-token context setting was capacity: the largest reported prompt was
+9,106 tokens, and every prior accepted decision was retained. Neither successful
+execution nor a larger context allocation establishes that decisions respond to
+relevant changes in the game.
+
+These remain prepared tasks with wait, brew, and finish as the only actions.
+Autonomous embark, construction, resource management beyond brewing, and
+full-game mastery have not been demonstrated.
 
 Linux runner support and checks are implemented, but native Linux gameplay
 has not been validated. Current native macOS integration is unsupported.
@@ -118,23 +144,46 @@ Configured cross-platform CI is not evidence that those live validations occurre
 
 ## Next acceptance milestone
 
-The action-to-native-production loop is demonstrated. The next milestone is to
-evaluate care over longer episodes with controls and several preserved starting
-saves, before expanding the action set or making comparative model claims:
+The next milestone is a task that can detect useful care decisions. Longer or
+larger-model runs alone cannot validate that task. The following work is planned,
+not implemented or completed:
 
-1. Retain and inspect complete successful and failed trials. Model B's token-limit
-   failure remains part of the initial paired evidence and its limitations.
-2. Run models and labeled idle/rule controls from restored checkpoints under
-   the same budgets, repeating across several starting saves.
-3. Track individual needs, stress, hunger/thirst counters, resources, and deaths
-   over longer horizons. Keep native production separate from evidence that
-   dwarves actually consumed drinks or that their measured condition improved.
-4. Publish reviewed evidence and limitations, including human preparation and
-   settings outside the recorded environment, before drawing broader conclusions.
+1. **Validate a short positive control.** Prepare and document a care problem
+   that the bounded interface can address. Predeclare a native care endpoint,
+   expected direction and horizon; compare a scripted useful intervention with
+   idle from the same checkpoint. Demonstrate the care effect before asking
+   models to solve it. Native production alone does not satisfy this check.
+2. **Measure repeatability and locate first divergence.** Replay identical
+   action traces across repeated restores without model inference. Separately
+   compare short and long waits while paused. Record queue insertion tick/frame
+   boundaries and compare native observations at the first divergence. Existing
+   exact advance boundaries do not show that actions were issued a few game
+   ticks late; the mechanism remains to be tested. One divergent pair is not
+   a reliable estimate of ordinary variation.
+3. **Test sensitivity to relevant state.** Build a small suite of validated
+   situations in which observations justify different useful actions, with
+   acceptable actions specified in advance. Check whether decisions respond to
+   those differences and whether their explanations match the evidence. Keep
+   weak models, repetition, invalid outputs and early failures as outcomes;
+   do not replace them with hidden retries or tune away an observed failure.
+4. **Record direct job lifecycle evidence.** Preserve distinct records for a
+   valid model decision, native queue acceptance, product creation, and native
+   cancellation/completion where directly observable. Include job IDs, native
+   timestamps and cancellation reasons when available. A vanished job cannot
+   supply its own explanation, and acceptance does not guarantee completion.
+5. **Measure performance improvements offline.** Replay recorded model requests
+   to measure prompt processing, cache reuse and decoding separately before
+   changing the prompt or cache strategy. Preserve the input/version contract
+   and report changed settings and actual usage; allocated context is not
+   processed tokens. Optimize measured bottlenecks after task validity is clear.
+6. **Run larger-model comparisons on the validated tasks.** Repeat models and
+   controls across preserved sites and trials, retaining all outcomes. Expand
+   the action set only when the added choices support an inspectable care task.
 
-These additional care evaluations remain to be performed. The setup procedures
-are in [EVALUATION.md](EVALUATION.md); the completed brewing episode and failed
-repeat are described in [the native loop record](docs/native-loop-proof.md).
+Publish reviewed evidence, human preparation and remaining unknowns at each
+milestone. The setup procedures are in [EVALUATION.md](EVALUATION.md); earlier
+success and failure are retained in [the native loop record](docs/native-loop-proof.md),
+and the longer controlled episode is in [the native care season](docs/native-care-season.md).
 
 ## Earlier prototype
 

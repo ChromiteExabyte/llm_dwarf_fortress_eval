@@ -1,0 +1,1144 @@
+{
+  "schema_version": 1,
+  "kind": "native_care_season_derived_measurements",
+  "date_utc": "2026-09-06",
+  "title": "One season with a local model",
+  "publication_scope": {
+    "included": [
+      "Selected run measurements",
+      "All 13 sampled trajectory points per policy",
+      "Executed action tuples",
+      "Per-model-call token and timing counters",
+      "Original source hashes"
+    ],
+    "omitted": [
+      "Full observations and model requests/responses",
+      "Private paths and endpoints",
+      "Session identifiers",
+      "Runtime logs",
+      "Starting fortress save",
+      "Game and model weights"
+    ],
+    "qualification": "Derived data, not a complete raw replay or independently reproducible starting-save release. Source hashes identify the private originals used for derivation.",
+    "derivation": "Original plan and audit hashes verified; each episode manifest and event log checked against audit source hashes. Native trajectories recomputed with dfeval.care; production uses validated native product receipts, not stock differences. Controls have null model metrics. No missing measurements imputed."
+  },
+  "source_code_commit": "fa99ddcab6c4e3b8d359d2b0ddf926fd8a26aff7",
+  "plan_sha256": "05a23d2ce9b7dcf9334be2e0acfaf7b50c9815ef1820588ffdc8184001ceeb99",
+  "audit_sha256": "d4c0eb147fd8a85a98c7bdadf1e26ea6f9bfbf5ec452853ed23906908e4532bf",
+  "starting_conditions": {
+    "versions": {
+      "df_version": "v0.53.16 win64 ITCH",
+      "dfhack_version": "53.16-r1.1"
+    },
+    "bridge_identity": {
+      "protocol": 1,
+      "script_sha256": "ef81cbce8c207beef15e3b161da2f66cc1c31043afb719664201da4e6bfe775f"
+    },
+    "starting_save_sha256": "182c40d4d913fff2c79a0084400efb4b5dfc8f88c0f8f58e3c09bb5c10a92740",
+    "initial_observation_sha256": "b71023d7368875e7afdd7f7b50a20e677775debc7a0db15d053f5139af0d0a1c",
+    "game_environment_sha256": "5472e8270186ef70d3926266e47ad7dab2d9e6a071dbdf05fdec3a34f7265a49",
+    "model_observation_version": "native-care-v1",
+    "first_policy_input_sha256": "d4214140b983f49d2ad4b7e8946c1a9d380c2140cb0022f400d33272d2fa34bb",
+    "initial_absolute_tick": 20178138,
+    "target_final_absolute_tick": 20278938,
+    "recorded_equality_checks": {
+      "comparison_config": true,
+      "starting_save_sha256": true,
+      "initial_observation_sha256": true,
+      "game_environment_sha256": true,
+      "bridge_identity": true,
+      "versions": true,
+      "model_observation_version": true,
+      "first_policy_input_bytes": true,
+      "all_input_hashes_match_recorded": true,
+      "all_initial_guards_matched": true,
+      "all_histories_match_prior_validated_decisions": true,
+      "all_model_requests_match_recorded_policy_inputs": true
+    },
+    "all_planned_config_fields_match": true,
+    "all_planned_starts_match": true,
+    "model_policy_matches_declared_plan": true,
+    "comparability_issues": [],
+    "qualification": "Matching recorded conditions does not establish identical unobserved state or deterministic replay."
+  },
+  "planned_budgets": {
+    "max_decisions": 12,
+    "ticks_per_decision": 8400,
+    "max_total_ticks": 100800,
+    "max_policy_calls": 12,
+    "max_bridge_calls": 96,
+    "max_output_tokens": 98304,
+    "max_output_bytes": 1572864,
+    "max_wall_seconds": 7200,
+    "request_timeout": 2400,
+    "max_input_bytes": 2000000,
+    "max_snapshot_bytes": 4000000,
+    "max_log_bytes": 128000000,
+    "history_decisions": 12,
+    "simulation_fps": 1000
+  },
+  "model_settings": {
+    "model_family": "Qwen2.5-1.5B-Instruct",
+    "quantization": "Q4_K_M",
+    "gguf_sha256": "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e",
+    "runtime": "Ollama 0.33.3, Windows CPU, four threads, one parallel request, f16 KV cache",
+    "runtime_archive_sha256": "52cb36a62e7e501f61514f60212dec7117b6c098811357585e02fffe32d2fcd7",
+    "runtime_executable_sha256": "e4fe6bd835fe146659f5c969dccaff2e25a9de63d90ee204ca5d11b9034b0ca5",
+    "recorded_native_model_context_limit": 32768,
+    "loaded_context_lengths_reported": [
+      32768
+    ],
+    "context_tokens": 32768,
+    "response_tokens_per_call": 8192,
+    "temperature": 0,
+    "seed": 17,
+    "think": false,
+    "host_timing_qualification": "Windows laptop CPU with other activity; not a controlled hardware comparison."
+  },
+  "units": {
+    "native_week_ticks": 8400,
+    "drink_stack_units": "Native item stack units; availability and consumption are not established.",
+    "confirmed_new_drink_stack_units": "Cumulative newly created drink units confirmed by native product receipts.",
+    "care_medians": "Raw native stress, timers and DrinkAlcohol focus; not normalized welfare scores.",
+    "prompt_tokens": "Provider-reported prompt appearances across calls, including reported cached tokens.",
+    "seconds": "Recorded wall or provider durations as named; floating-point precision is retained."
+  },
+  "runs": [
+    {
+      "policy": "model",
+      "started_at_utc": "2026-09-06T01:05:42.963895+00:00",
+      "ended_at_utc": "2026-09-06T01:50:11.724701+00:00",
+      "source_files": [
+        {
+          "file": "manifest.json",
+          "sha256": "c8c7d5b85c06e39ce4fdffd6c2c2de08491360312744b3e1400c91ea5cce1976",
+          "bytes": 106337
+        },
+        {
+          "file": "events.jsonl",
+          "sha256": "765cb85b0746ee5d51257735fbae504d063848250c70f3f8a215f75af1b8aa81",
+          "bytes": 976115
+        }
+      ],
+      "outcome": "budget_exhausted",
+      "detail": "max_decisions",
+      "complete_horizon": true,
+      "pause_and_simulation_cap_restoration_confirmed": true,
+      "accepted_decisions": 12,
+      "invalid_response_count": 0,
+      "failed_policy_calls": 0,
+      "observed_confirmed_deaths": 0,
+      "actions": [
+        {
+          "turn": 1,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 2,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 3,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 4,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 5,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 6,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 7,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 8,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 9,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 10,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 11,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 12,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        }
+      ],
+      "native_jobs_queued": 12,
+      "jobs_with_confirmed_drink_products": 5,
+      "jobs_without_recorded_drink_products_by_end": 7,
+      "production_evidence_complete": true,
+      "performance": {
+        "episode_wall_seconds": 2668.890000000014,
+        "episode_ticks_per_second": 37.76851050436679,
+        "advance_ticks_per_second": 490.3296104603628,
+        "model_policy_wall_seconds": 2459.5640000000712,
+        "prompt_tokens": 88470,
+        "generated_tokens": 2392,
+        "cached_prompt_tokens": 13862,
+        "prompt_seconds": 2107.7225280000002,
+        "generation_seconds": 345.315127999,
+        "native_decoding_tokens_per_second": 6.927006105585177,
+        "end_to_end_completion_tokens_per_second": 0.9725300906989738
+      },
+      "model_calls": [
+        {
+          "turn": 1,
+          "state": "accepted",
+          "stop_reason": "stop",
+          "retained_history_decisions": 0,
+          "policy_input_sha256": "d4214140b983f49d2ad4b7e8946c1a9d380c2140cb0022f400d33272d2fa34bb",
+          "prompt_tokens": 4534,
+          "generated_tokens": 139,
+          "cached_prompt_tokens": 0,
+          "policy_wall_seconds": 122.07800000000861,
+          "prompt_seconds": 102.793754,
+          "generation_seconds": 14.416744,
+          "load_seconds": 4.7699554,
+          "total_seconds": 122.0531824
+        },
+        {
+          "turn": 2,
+          "state": "accepted",
+          "stop_reason": "stop",
+          "retained_history_decisions": 1,
+          "policy_input_sha256": "1232e85bcc28c36f591af11b25a784e27b137074a5511e017c42800e4cba4949",
+          "prompt_tokens": 5240,
+          "generated_tokens": 207,
+          "cached_prompt_tokens": 397,
+          "policy_wall_seconds": 137.56200000000536,
+          "prompt_seconds": 114.486478,
+          "generation_seconds": 22.930064,
+          "load_seconds": 0.0090688,
+          "total_seconds": 137.5330657
+        },
+        {
+          "turn": 3,
+          "state": "accepted",
+          "stop_reason": "stop",
+          "retained_history_decisions": 2,
+          "policy_input_sha256": "8bbaf70d257628df628d76c29e727d4a41df47a84be47426883baadb0b7b6f75",
+          "prompt_tokens": 5889,
+          "generated_tokens": 207,
+          "cached_prompt_tokens": 514,
+          "policy_wall_seconds": 158.70300000000861,
+          "prompt_seconds": 133.719105,
+          "generation_seconds": 24.892211,
+          "load_seconds": 0.0040443,
+          "total_seconds": 158.7021737
+        },
+        {
+          "turn": 4,
+          "state": "accepted",
+          "stop_reason": "stop",
+          "retained_history_decisions": 3,
+          "policy_input_sha256": "385e42001dbe93b42ea9ccb9479ed1ba037e46aca3b7105bdc0e02a03584579e",
+          "prompt_tokens": 6490,
+          "generated_tokens": 207,
+          "cached_prompt_tokens": 699,
+          "policy_wall_seconds": 178.48399999999674,
+          "prompt_seconds": 151.111047,
+          "generation_seconds": 27.257086,
+          "load_seconds": 0.00405,
+          "total_seconds": 178.4635968
+        },
+        {
+          "turn": 5,
+          "state": "accepted",
+          "stop_reason": "stop",
+          "retained_history_decisions": 4,
+          "policy_input_sha256": "df420f2908c78f355360c911aa8a49ca1d7dc5621cef29304aa47e5fa908a124",
+          "prompt_tokens": 7119,
+          "generated_tokens": 207,
+          "cached_prompt_tokens": 884,
+          "policy_wall_seconds": 206.89100000000326,
+          "prompt_seconds": 176.847009,
+          "generation_seconds": 29.895966,
+          "load_seconds": 0.0038749,
+          "total_seconds": 206.8622835
+        },
+        {
+          "turn": 6,
+          "state": "accepted",
+          "stop_reason": "stop",
+          "retained_history_decisions": 5,
+          "policy_input_sha256": "72faca94cc7dd0ec7a8edaab2d7f54dbd0a820b5a4f0266afc0dce8fba201260",
+          "prompt_tokens": 7484,
+          "generated_tokens": 207,
+          "cached_prompt_tokens": 1069,
+          "policy_wall_seconds": 216.65700000000652,
+          "prompt_seconds": 184.770298,
+          "generation_seconds": 31.764599,
+          "load_seconds": 0.0041088,
+          "total_seconds": 216.6453418
+        },
+        {
+          "turn": 7,
+          "state": "accepted",
+          "stop_reason": "stop",
+          "retained_history_decisions": 6,
+          "policy_input_sha256": "f69f3fd182625745f502afd3a77285128c2a6a8d627d87bed76ac3413d06a66f",
+          "prompt_tokens": 8133,
+          "generated_tokens": 207,
+          "cached_prompt_tokens": 1254,
+          "policy_wall_seconds": 232.40600000001723,
+          "prompt_seconds": 199.862617,
+          "generation_seconds": 32.402552,
+          "load_seconds": 0.0048974,
+          "total_seconds": 232.3951575
+        },
+        {
+          "turn": 8,
+          "state": "accepted",
+          "stop_reason": "stop",
+          "retained_history_decisions": 7,
+          "policy_input_sha256": "06f31cf699d686e7cfc3ad468ec0ba988a96997000e1b938a79b1b6c52dd51d2",
+          "prompt_tokens": 8239,
+          "generated_tokens": 207,
+          "cached_prompt_tokens": 1439,
+          "policy_wall_seconds": 236.4539999999979,
+          "prompt_seconds": 204.195297,
+          "generation_seconds": 32.109129,
+          "load_seconds": 0.0043671,
+          "total_seconds": 236.4373463
+        },
+        {
+          "turn": 9,
+          "state": "accepted",
+          "stop_reason": "stop",
+          "retained_history_decisions": 8,
+          "policy_input_sha256": "745646aed8f42688d07ae4a68cdb22cd13e86198f24032077d90114f72ed3f3d",
+          "prompt_tokens": 8440,
+          "generated_tokens": 207,
+          "cached_prompt_tokens": 1624,
+          "policy_wall_seconds": 229.4220000000205,
+          "prompt_seconds": 197.128622,
+          "generation_seconds": 32.068648,
+          "load_seconds": 0.0050778,
+          "total_seconds": 229.4089038
+        },
+        {
+          "turn": 10,
+          "state": "accepted",
+          "stop_reason": "stop",
+          "retained_history_decisions": 9,
+          "policy_input_sha256": "22fd86cb5fc3f39e9ad1e4aef1882e5d06b136d01a963eed0f1c77714930dcf7",
+          "prompt_tokens": 8712,
+          "generated_tokens": 207,
+          "cached_prompt_tokens": 1809,
+          "policy_wall_seconds": 248.0470000000205,
+          "prompt_seconds": 214.443423,
+          "generation_seconds": 33.463525,
+          "load_seconds": 0.0029948,
+          "total_seconds": 248.0502991
+        },
+        {
+          "turn": 11,
+          "state": "accepted",
+          "stop_reason": "stop",
+          "retained_history_decisions": 10,
+          "policy_input_sha256": "0276418c21f4cc15f2456757cca6192349160b481070eb84777318955cd466d2",
+          "prompt_tokens": 9106,
+          "generated_tokens": 187,
+          "cached_prompt_tokens": 1994,
+          "policy_wall_seconds": 246.54699999999139,
+          "prompt_seconds": 215.874097,
+          "generation_seconds": 30.497241,
+          "load_seconds": 0.0023106,
+          "total_seconds": 246.516012
+        },
+        {
+          "turn": 12,
+          "state": "accepted",
+          "stop_reason": "stop",
+          "retained_history_decisions": 11,
+          "policy_input_sha256": "089b0529889972d422207807616f31c0bf4ebfe8665d9fe9c9dc1c37a7ee98b3",
+          "prompt_tokens": 9084,
+          "generated_tokens": 203,
+          "cached_prompt_tokens": 2179,
+          "policy_wall_seconds": 246.31299999999464,
+          "prompt_seconds": 212.490781,
+          "generation_seconds": 33.617362999,
+          "load_seconds": 0.0026915,
+          "total_seconds": 246.3012041
+        }
+      ],
+      "trajectory": [
+        {
+          "absolute_tick": 20178138,
+          "population": 7,
+          "drink_stack_units": 60,
+          "stress_median": 220,
+          "thirst_timer_median": 1338,
+          "hunger_timer_median": 1338,
+          "sleepiness_timer_median": 4022,
+          "drink_alcohol_focus_median": -190,
+          "elapsed_ticks": 0,
+          "elapsed_weeks": 0.0,
+          "confirmed_new_drink_stack_units": 0.0
+        },
+        {
+          "absolute_tick": 20186538,
+          "population": 7,
+          "drink_stack_units": 85,
+          "stress_median": 1600,
+          "thirst_timer_median": 9738,
+          "hunger_timer_median": 9738,
+          "sleepiness_timer_median": 12422,
+          "drink_alcohol_focus_median": -1390,
+          "elapsed_ticks": 8400,
+          "elapsed_weeks": 1.0,
+          "confirmed_new_drink_stack_units": 25.0
+        },
+        {
+          "absolute_tick": 20194938,
+          "population": 7,
+          "drink_stack_units": 110,
+          "stress_median": 1440,
+          "thirst_timer_median": 18138,
+          "hunger_timer_median": 18138,
+          "sleepiness_timer_median": 20822,
+          "drink_alcohol_focus_median": -2590,
+          "elapsed_ticks": 16800,
+          "elapsed_weeks": 2.0,
+          "confirmed_new_drink_stack_units": 50.0
+        },
+        {
+          "absolute_tick": 20203338,
+          "population": 7,
+          "drink_stack_units": 128,
+          "stress_median": 1440,
+          "thirst_timer_median": 5217,
+          "hunger_timer_median": 26538,
+          "sleepiness_timer_median": 29222,
+          "drink_alcohol_focus_median": 325,
+          "elapsed_ticks": 25200,
+          "elapsed_weeks": 3.0,
+          "confirmed_new_drink_stack_units": 75.0
+        },
+        {
+          "absolute_tick": 20211738,
+          "population": 7,
+          "drink_stack_units": 153,
+          "stress_median": 2620,
+          "thirst_timer_median": 13617,
+          "hunger_timer_median": 34938,
+          "sleepiness_timer_median": 37622,
+          "drink_alcohol_focus_median": 205,
+          "elapsed_ticks": 33600,
+          "elapsed_weeks": 4.0,
+          "confirmed_new_drink_stack_units": 100.0
+        },
+        {
+          "absolute_tick": 20220138,
+          "population": 7,
+          "drink_stack_units": 147,
+          "stress_median": 4252,
+          "thirst_timer_median": 1245,
+          "hunger_timer_median": 2022,
+          "sleepiness_timer_median": 46022,
+          "drink_alcohol_focus_median": 382,
+          "elapsed_ticks": 42000,
+          "elapsed_weeks": 5.0,
+          "confirmed_new_drink_stack_units": 100.0
+        },
+        {
+          "absolute_tick": 20228538,
+          "population": 7,
+          "drink_stack_units": 171,
+          "stress_median": 4372,
+          "thirst_timer_median": 9408,
+          "hunger_timer_median": 10042,
+          "sleepiness_timer_median": 3926,
+          "drink_alcohol_focus_median": 265,
+          "elapsed_ticks": 50400,
+          "elapsed_weeks": 6.0,
+          "confirmed_new_drink_stack_units": 125.0
+        },
+        {
+          "absolute_tick": 20236938,
+          "population": 7,
+          "drink_stack_units": 171,
+          "stress_median": 4372,
+          "thirst_timer_median": 17808,
+          "hunger_timer_median": 18442,
+          "sleepiness_timer_median": 10462,
+          "drink_alcohol_focus_median": 145,
+          "elapsed_ticks": 58800,
+          "elapsed_weeks": 7.0,
+          "confirmed_new_drink_stack_units": 125.0
+        },
+        {
+          "absolute_tick": 20245338,
+          "population": 7,
+          "drink_stack_units": 165,
+          "stress_median": 4072,
+          "thirst_timer_median": 5006,
+          "hunger_timer_median": 26842,
+          "sleepiness_timer_median": 18862,
+          "drink_alcohol_focus_median": 328,
+          "elapsed_ticks": 67200,
+          "elapsed_weeks": 8.0,
+          "confirmed_new_drink_stack_units": 125.0
+        },
+        {
+          "absolute_tick": 20253738,
+          "population": 7,
+          "drink_stack_units": 164,
+          "stress_median": 4072,
+          "thirst_timer_median": 13320,
+          "hunger_timer_median": 35242,
+          "sleepiness_timer_median": 27262,
+          "drink_alcohol_focus_median": 209,
+          "elapsed_ticks": 75600,
+          "elapsed_weeks": 9.0,
+          "confirmed_new_drink_stack_units": 125.0
+        },
+        {
+          "absolute_tick": 20262138,
+          "population": 7,
+          "drink_stack_units": 161,
+          "stress_median": 4292,
+          "thirst_timer_median": 13600,
+          "hunger_timer_median": 2439,
+          "sleepiness_timer_median": 35662,
+          "drink_alcohol_focus_median": 205,
+          "elapsed_ticks": 84000,
+          "elapsed_weeks": 10.0,
+          "confirmed_new_drink_stack_units": 125.0
+        },
+        {
+          "absolute_tick": 20270538,
+          "population": 7,
+          "drink_stack_units": 158,
+          "stress_median": 5452,
+          "thirst_timer_median": 8621,
+          "hunger_timer_median": 10839,
+          "sleepiness_timer_median": 44062,
+          "drink_alcohol_focus_median": 276,
+          "elapsed_ticks": 92400,
+          "elapsed_weeks": 11.0,
+          "confirmed_new_drink_stack_units": 125.0
+        },
+        {
+          "absolute_tick": 20278938,
+          "population": 7,
+          "drink_stack_units": 157,
+          "stress_median": 5452,
+          "thirst_timer_median": 16667,
+          "hunger_timer_median": 18910,
+          "sleepiness_timer_median": 4262,
+          "drink_alcohol_focus_median": 162,
+          "elapsed_ticks": 100800,
+          "elapsed_weeks": 12.0,
+          "confirmed_new_drink_stack_units": 125.0
+        }
+      ]
+    },
+    {
+      "policy": "idle",
+      "started_at_utc": "2026-09-06T01:53:26.101780+00:00",
+      "ended_at_utc": "2026-09-06T01:57:15.186602+00:00",
+      "source_files": [
+        {
+          "file": "manifest.json",
+          "sha256": "68c3cf917ba2e5f3d2898d6c67e153b2127cda045c89ea87b74bf4007bc68f17",
+          "bytes": 99988
+        },
+        {
+          "file": "events.jsonl",
+          "sha256": "87b50a72475af1dc59a1c698e093bb05f9154b9342f48065548d004da3c34b26",
+          "bytes": 477182
+        }
+      ],
+      "outcome": "budget_exhausted",
+      "detail": "max_decisions",
+      "complete_horizon": true,
+      "pause_and_simulation_cap_restoration_confirmed": true,
+      "accepted_decisions": 12,
+      "invalid_response_count": 0,
+      "failed_policy_calls": 0,
+      "observed_confirmed_deaths": 0,
+      "actions": [
+        {
+          "turn": 1,
+          "action": "wait"
+        },
+        {
+          "turn": 2,
+          "action": "wait"
+        },
+        {
+          "turn": 3,
+          "action": "wait"
+        },
+        {
+          "turn": 4,
+          "action": "wait"
+        },
+        {
+          "turn": 5,
+          "action": "wait"
+        },
+        {
+          "turn": 6,
+          "action": "wait"
+        },
+        {
+          "turn": 7,
+          "action": "wait"
+        },
+        {
+          "turn": 8,
+          "action": "wait"
+        },
+        {
+          "turn": 9,
+          "action": "wait"
+        },
+        {
+          "turn": 10,
+          "action": "wait"
+        },
+        {
+          "turn": 11,
+          "action": "wait"
+        },
+        {
+          "turn": 12,
+          "action": "wait"
+        }
+      ],
+      "native_jobs_queued": 0,
+      "jobs_with_confirmed_drink_products": 0,
+      "jobs_without_recorded_drink_products_by_end": 0,
+      "production_evidence_complete": true,
+      "performance": {
+        "episode_wall_seconds": 229.14100000000326,
+        "episode_ticks_per_second": 439.90381468178356,
+        "advance_ticks_per_second": 445.2788514631082,
+        "model_policy_wall_seconds": null,
+        "prompt_tokens": null,
+        "generated_tokens": null,
+        "cached_prompt_tokens": null,
+        "prompt_seconds": null,
+        "generation_seconds": null,
+        "native_decoding_tokens_per_second": null,
+        "end_to_end_completion_tokens_per_second": null
+      },
+      "model_calls": [],
+      "trajectory": [
+        {
+          "absolute_tick": 20178138,
+          "population": 7,
+          "drink_stack_units": 60,
+          "stress_median": 220,
+          "thirst_timer_median": 1338,
+          "hunger_timer_median": 1338,
+          "sleepiness_timer_median": 4022,
+          "drink_alcohol_focus_median": -190,
+          "elapsed_ticks": 0,
+          "elapsed_weeks": 0.0,
+          "confirmed_new_drink_stack_units": 0.0
+        },
+        {
+          "absolute_tick": 20186538,
+          "population": 7,
+          "drink_stack_units": 60,
+          "stress_median": 980,
+          "thirst_timer_median": 9738,
+          "hunger_timer_median": 9738,
+          "sleepiness_timer_median": 12422,
+          "drink_alcohol_focus_median": -1390,
+          "elapsed_ticks": 8400,
+          "elapsed_weeks": 1.0,
+          "confirmed_new_drink_stack_units": 0.0
+        },
+        {
+          "absolute_tick": 20194938,
+          "population": 7,
+          "drink_stack_units": 60,
+          "stress_median": 1020,
+          "thirst_timer_median": 18138,
+          "hunger_timer_median": 18138,
+          "sleepiness_timer_median": 20822,
+          "drink_alcohol_focus_median": -2590,
+          "elapsed_ticks": 16800,
+          "elapsed_weeks": 2.0,
+          "confirmed_new_drink_stack_units": 0.0
+        },
+        {
+          "absolute_tick": 20203338,
+          "population": 7,
+          "drink_stack_units": 53,
+          "stress_median": 1680,
+          "thirst_timer_median": 5271,
+          "hunger_timer_median": 26538,
+          "sleepiness_timer_median": 29222,
+          "drink_alcohol_focus_median": 324,
+          "elapsed_ticks": 25200,
+          "elapsed_weeks": 3.0,
+          "confirmed_new_drink_stack_units": 0.0
+        },
+        {
+          "absolute_tick": 20211738,
+          "population": 7,
+          "drink_stack_units": 53,
+          "stress_median": 1680,
+          "thirst_timer_median": 13671,
+          "hunger_timer_median": 34938,
+          "sleepiness_timer_median": 37622,
+          "drink_alcohol_focus_median": 204,
+          "elapsed_ticks": 33600,
+          "elapsed_weeks": 4.0,
+          "confirmed_new_drink_stack_units": 0.0
+        },
+        {
+          "absolute_tick": 20220138,
+          "population": 7,
+          "drink_stack_units": 47,
+          "stress_median": 2050,
+          "thirst_timer_median": 1343,
+          "hunger_timer_median": 2059,
+          "sleepiness_timer_median": 46022,
+          "drink_alcohol_focus_median": 380,
+          "elapsed_ticks": 42000,
+          "elapsed_weeks": 5.0,
+          "confirmed_new_drink_stack_units": 0.0
+        },
+        {
+          "absolute_tick": 20228538,
+          "population": 7,
+          "drink_stack_units": 46,
+          "stress_median": 2700,
+          "thirst_timer_median": 9269,
+          "hunger_timer_median": 10283,
+          "sleepiness_timer_median": 3786,
+          "drink_alcohol_focus_median": 267,
+          "elapsed_ticks": 50400,
+          "elapsed_weeks": 6.0,
+          "confirmed_new_drink_stack_units": 0.0
+        },
+        {
+          "absolute_tick": 20236938,
+          "population": 7,
+          "drink_stack_units": 46,
+          "stress_median": 3470,
+          "thirst_timer_median": 17669,
+          "hunger_timer_median": 18683,
+          "sleepiness_timer_median": 10282,
+          "drink_alcohol_focus_median": 147,
+          "elapsed_ticks": 58800,
+          "elapsed_weeks": 7.0,
+          "confirmed_new_drink_stack_units": 0.0
+        },
+        {
+          "absolute_tick": 20245338,
+          "population": 7,
+          "drink_stack_units": 40,
+          "stress_median": 3810,
+          "thirst_timer_median": 4824,
+          "hunger_timer_median": 27083,
+          "sleepiness_timer_median": 18682,
+          "drink_alcohol_focus_median": 331,
+          "elapsed_ticks": 67200,
+          "elapsed_weeks": 8.0,
+          "confirmed_new_drink_stack_units": 0.0
+        },
+        {
+          "absolute_tick": 20253738,
+          "population": 7,
+          "drink_stack_units": 39,
+          "stress_median": 3680,
+          "thirst_timer_median": 12529,
+          "hunger_timer_median": 35483,
+          "sleepiness_timer_median": 27082,
+          "drink_alcohol_focus_median": 221,
+          "elapsed_ticks": 75600,
+          "elapsed_weeks": 9.0,
+          "confirmed_new_drink_stack_units": 0.0
+        },
+        {
+          "absolute_tick": 20262138,
+          "population": 7,
+          "drink_stack_units": 36,
+          "stress_median": 3730,
+          "thirst_timer_median": 13556,
+          "hunger_timer_median": 2497,
+          "sleepiness_timer_median": 35482,
+          "drink_alcohol_focus_median": 206,
+          "elapsed_ticks": 84000,
+          "elapsed_weeks": 10.0,
+          "confirmed_new_drink_stack_units": 0.0
+        },
+        {
+          "absolute_tick": 20270538,
+          "population": 7,
+          "drink_stack_units": 33,
+          "stress_median": 3450,
+          "thirst_timer_median": 8481,
+          "hunger_timer_median": 10897,
+          "sleepiness_timer_median": 43882,
+          "drink_alcohol_focus_median": 278,
+          "elapsed_ticks": 92400,
+          "elapsed_weeks": 11.0,
+          "confirmed_new_drink_stack_units": 0.0
+        },
+        {
+          "absolute_tick": 20278938,
+          "population": 7,
+          "drink_stack_units": 32,
+          "stress_median": 3330,
+          "thirst_timer_median": 16303,
+          "hunger_timer_median": 19216,
+          "sleepiness_timer_median": 8242,
+          "drink_alcohol_focus_median": 167,
+          "elapsed_ticks": 100800,
+          "elapsed_weeks": 12.0,
+          "confirmed_new_drink_stack_units": 0.0
+        }
+      ]
+    },
+    {
+      "policy": "rule",
+      "started_at_utc": "2026-09-06T02:01:07.801378+00:00",
+      "ended_at_utc": "2026-09-06T02:04:26.511364+00:00",
+      "source_files": [
+        {
+          "file": "manifest.json",
+          "sha256": "8555debaab4da974002461ebe0d7d5a5802cc8eccbfc14e0fe319deac7d8abe3",
+          "bytes": 100098
+        },
+        {
+          "file": "events.jsonl",
+          "sha256": "d09014fa6a209ec166fedd40f7a327a9c9a6d6b3107b7a651a1a6abe0d7c32c1",
+          "bytes": 622064
+        }
+      ],
+      "outcome": "budget_exhausted",
+      "detail": "max_decisions",
+      "complete_horizon": true,
+      "pause_and_simulation_cap_restoration_confirmed": true,
+      "accepted_decisions": 12,
+      "invalid_response_count": 0,
+      "failed_policy_calls": 0,
+      "observed_confirmed_deaths": 0,
+      "actions": [
+        {
+          "turn": 1,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 2,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 3,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 4,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 5,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 6,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 7,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 8,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 9,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 10,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 11,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        },
+        {
+          "turn": 12,
+          "action": "brew",
+          "workshop_id": 1,
+          "quantity": 1
+        }
+      ],
+      "native_jobs_queued": 12,
+      "jobs_with_confirmed_drink_products": 5,
+      "jobs_without_recorded_drink_products_by_end": 7,
+      "production_evidence_complete": true,
+      "performance": {
+        "episode_wall_seconds": 198.81299999999464,
+        "episode_ticks_per_second": 507.009099002594,
+        "advance_ticks_per_second": 515.519278272965,
+        "model_policy_wall_seconds": null,
+        "prompt_tokens": null,
+        "generated_tokens": null,
+        "cached_prompt_tokens": null,
+        "prompt_seconds": null,
+        "generation_seconds": null,
+        "native_decoding_tokens_per_second": null,
+        "end_to_end_completion_tokens_per_second": null
+      },
+      "model_calls": [],
+      "trajectory": [
+        {
+          "absolute_tick": 20178138,
+          "population": 7,
+          "drink_stack_units": 60,
+          "stress_median": 220,
+          "thirst_timer_median": 1338,
+          "hunger_timer_median": 1338,
+          "sleepiness_timer_median": 4022,
+          "drink_alcohol_focus_median": -190,
+          "elapsed_ticks": 0,
+          "elapsed_weeks": 0.0,
+          "confirmed_new_drink_stack_units": 0.0
+        },
+        {
+          "absolute_tick": 20186538,
+          "population": 7,
+          "drink_stack_units": 85,
+          "stress_median": 820,
+          "thirst_timer_median": 9738,
+          "hunger_timer_median": 9738,
+          "sleepiness_timer_median": 12422,
+          "drink_alcohol_focus_median": -1390,
+          "elapsed_ticks": 8400,
+          "elapsed_weeks": 1.0,
+          "confirmed_new_drink_stack_units": 25.0
+        },
+        {
+          "absolute_tick": 20194938,
+          "population": 7,
+          "drink_stack_units": 110,
+          "stress_median": 1660,
+          "thirst_timer_median": 18138,
+          "hunger_timer_median": 18138,
+          "sleepiness_timer_median": 20822,
+          "drink_alcohol_focus_median": -2590,
+          "elapsed_ticks": 16800,
+          "elapsed_weeks": 2.0,
+          "confirmed_new_drink_stack_units": 50.0
+        },
+        {
+          "absolute_tick": 20203338,
+          "population": 7,
+          "drink_stack_units": 128,
+          "stress_median": 2192,
+          "thirst_timer_median": 5256,
+          "hunger_timer_median": 26538,
+          "sleepiness_timer_median": 29222,
+          "drink_alcohol_focus_median": 325,
+          "elapsed_ticks": 25200,
+          "elapsed_weeks": 3.0,
+          "confirmed_new_drink_stack_units": 75.0
+        },
+        {
+          "absolute_tick": 20211738,
+          "population": 7,
+          "drink_stack_units": 153,
+          "stress_median": 2322,
+          "thirst_timer_median": 13656,
+          "hunger_timer_median": 34938,
+          "sleepiness_timer_median": 37622,
+          "drink_alcohol_focus_median": 205,
+          "elapsed_ticks": 33600,
+          "elapsed_weeks": 4.0,
+          "confirmed_new_drink_stack_units": 100.0
+        },
+        {
+          "absolute_tick": 20220138,
+          "population": 7,
+          "drink_stack_units": 147,
+          "stress_median": 2968,
+          "thirst_timer_median": 1149,
+          "hunger_timer_median": 1915,
+          "sleepiness_timer_median": 46022,
+          "drink_alcohol_focus_median": 383,
+          "elapsed_ticks": 42000,
+          "elapsed_weeks": 5.0,
+          "confirmed_new_drink_stack_units": 100.0
+        },
+        {
+          "absolute_tick": 20228538,
+          "population": 7,
+          "drink_stack_units": 171,
+          "stress_median": 3478,
+          "thirst_timer_median": 9383,
+          "hunger_timer_median": 10238,
+          "sleepiness_timer_median": 3772,
+          "drink_alcohol_focus_median": 266,
+          "elapsed_ticks": 50400,
+          "elapsed_weeks": 6.0,
+          "confirmed_new_drink_stack_units": 125.0
+        },
+        {
+          "absolute_tick": 20236938,
+          "population": 7,
+          "drink_stack_units": 171,
+          "stress_median": 3560,
+          "thirst_timer_median": 17783,
+          "hunger_timer_median": 18638,
+          "sleepiness_timer_median": 10361,
+          "drink_alcohol_focus_median": 146,
+          "elapsed_ticks": 58800,
+          "elapsed_weeks": 7.0,
+          "confirmed_new_drink_stack_units": 125.0
+        },
+        {
+          "absolute_tick": 20245338,
+          "population": 7,
+          "drink_stack_units": 165,
+          "stress_median": 3680,
+          "thirst_timer_median": 4906,
+          "hunger_timer_median": 27038,
+          "sleepiness_timer_median": 18761,
+          "drink_alcohol_focus_median": 330,
+          "elapsed_ticks": 67200,
+          "elapsed_weeks": 8.0,
+          "confirmed_new_drink_stack_units": 125.0
+        },
+        {
+          "absolute_tick": 20253738,
+          "population": 7,
+          "drink_stack_units": 164,
+          "stress_median": 3680,
+          "thirst_timer_median": 13274,
+          "hunger_timer_median": 35438,
+          "sleepiness_timer_median": 27161,
+          "drink_alcohol_focus_median": 210,
+          "elapsed_ticks": 75600,
+          "elapsed_weeks": 9.0,
+          "confirmed_new_drink_stack_units": 125.0
+        },
+        {
+          "absolute_tick": 20262138,
+          "population": 7,
+          "drink_stack_units": 159,
+          "stress_median": 4404,
+          "thirst_timer_median": 915,
+          "hunger_timer_median": 2194,
+          "sleepiness_timer_median": 35561,
+          "drink_alcohol_focus_median": 387,
+          "elapsed_ticks": 84000,
+          "elapsed_weeks": 10.0,
+          "confirmed_new_drink_stack_units": 125.0
+        },
+        {
+          "absolute_tick": 20270538,
+          "population": 7,
+          "drink_stack_units": 158,
+          "stress_median": 4824,
+          "thirst_timer_median": 9055,
+          "hunger_timer_median": 10594,
+          "sleepiness_timer_median": 43961,
+          "drink_alcohol_focus_median": 270,
+          "elapsed_ticks": 92400,
+          "elapsed_weeks": 11.0,
+          "confirmed_new_drink_stack_units": 125.0
+        },
+        {
+          "absolute_tick": 20278938,
+          "population": 7,
+          "drink_stack_units": 157,
+          "stress_median": 4244,
+          "thirst_timer_median": 17342,
+          "hunger_timer_median": 18948,
+          "sleepiness_timer_median": 11001,
+          "drink_alcohol_focus_median": 152,
+          "elapsed_ticks": 100800,
+          "elapsed_weeks": 12.0,
+          "confirmed_new_drink_stack_units": 125.0
+        }
+      ]
+    }
+  ],
+  "observations": {
+    "model_and_rule_action_sequences_identical": true,
+    "model_distinct_public_reasons": 1,
+    "jobs_without_recorded_products_explanation": "Not recorded; seven jobs per brewing episode had no recorded drink output by the end.",
+    "care_advantage": "Not established.",
+    "state_sensitivity": "Not established by this single trajectory.",
+    "repeatability": "Unresolved; identical recorded actions produced different native care trajectories.",
+    "stock_balance": "Start plus confirmed production minus final stock equals 28 in each run; this is not a measured consumption count."
+  },
+  "figure": {
+    "file": "../assets/native-care-season.svg",
+    "sha256": "680e55846af0da62e3dd8201cb1951721510594ac0306d59b3c3ed12afb2b2ec",
+    "original_svg_sha256": "2ca842fc8a4125a61258c59e174e3deda78613ece41aba40eda27c7aa97bd32b",
+    "derivation": "Original SVG with trailing line whitespace removed; all plotted points are included in the per-policy trajectory arrays."
+  }
+}

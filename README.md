@@ -7,16 +7,19 @@ care and performance reports, save snapshots, and a spectator with replay.
 Its objective is dwarf wellbeing. The evidence includes individual dwarves,
 the model's observations and public decisions, orders, and their results.
 
-**Status: experimental software with a demonstrated native model loop.** A local
-model completed two native brewing jobs producing 50 drink units. A second
-model passed the restored-start check, then hit its response-token limit; the
-runner recorded that failure without executing an action. See the
-[paired loop evidence](docs/native-loop-proof.md). This does not establish
-improved wellbeing or a model ranking.
+**Status: a working native brewing harness; care-task validation is pending.**
+Models can wait, queue brewing, or finish in a prepared fortress. General
+fortress management remains unfinished, and the current task has not established
+that its choices reliably distinguish good care from poor care.
 
-Native Ollama is also exercised in a separate [care pilot](docs/native-care-pilot.md),
-including a recorded token-limit failure and controls restored from the same
-starting checkpoint. New runs use deterministic, versioned model inputs.
+In the latest [three-month experiment](docs/native-care-season.md), a local
+Qwen2.5-1.5B model through Ollama and two restored controls each completed
+100,800 native ticks. The model and brewing rule chose identical actions on
+all 12 decisions and each produced 125 drink units. All seven dwarves survived
+in every run; no model care advantage was demonstrated. The report includes
+a chart, downloadable measurements, runtime costs, and unresolved questions.
+The [next milestone](PROJECT_DIRECTION.md#next-acceptance-milestone) is a short
+task where a useful intervention reliably changes a predefined care outcome.
 
 **Inspect it first:** with Python 3.11+, run `python start.py demo --open` from
 the source folder. This opens the recorded model episode locally; no game,
@@ -219,27 +222,32 @@ the [native check evidence and timing limits](docs/model-connections.md#native-o
 
 | Platform | Current evidence |
 | --- | --- |
-| Windows | Local tests, autonomous native brewing, verified starting-save restoration, and a recorded second-model failure |
-| Linux | Native runner discovery/process checks implemented and tested with fixtures; live game validation pending |
-| macOS | Offline Python tools supported by the design; current native game integration unsupported |
+| Windows | Offline CI passed; autonomous native brewing, restored controls, and recorded model failures exercised locally |
+| Linux | Offline CI passed; native runner discovery/process checks tested with fixtures; live game validation pending |
+| macOS | Offline CI passed; current native game integration unsupported |
 
-Package/test CI is configured for Windows, Linux, and macOS. Configuration is
-not a claim that remote CI or native game tests have passed on those systems.
+All seven jobs in the [verified cross-platform CI run](https://github.com/ChromiteExabyte/llm_dwarf_fortress_eval/actions/runs/34004152116)
+passed tests, builds, distribution inspection, and clean-install checks.
+These offline checks do not exercise native gameplay on those systems.
 The bounded interface is an application boundary; operating-system isolation
 of the game and host has not been implemented.
 
 An installed **Ollama 0.33.3** runtime passed the synthetic connection check.
-In the subsequent native trial, the model hit its 512-token response limit;
+In the earlier native care pilot, the model hit its 512-token response limit;
 the runner rejected it with zero accepted actions. Both restored controls
 completed 33,600 ticks, and the brewing rule produced 100 drink units. All three
 initial native guards and first projected input hashes matched. See the
 [Ollama care pilot](docs/native-care-pilot.md) for outcomes and limitations.
 The historical proof and packaged recording predate `native-care-v1`; they keep
-their original inputs. The newer model's incomplete horizon prevents a completed
-model-versus-control care comparison.
+their original inputs. That pilot's incomplete model horizon prevented a full
+comparison. The later [three-month experiment](docs/native-care-season.md)
+completed every policy's horizon with larger declared limits, while exposing
+identical model/rule actions, unexplained job outcomes, and unresolved native
+repeatability. Completing the loop does not validate the care task.
 
 ## Read further
 
+- [Latest experiment: three months, a local model, and two controls](docs/native-care-season.md)
 - [Evaluation: model choices, budgets, starting saves, and comparisons](EVALUATION.md)
 - [Benchmark reports and performance settings](docs/benchmarking.md)
 - [Live game installation, probes, and evidence](LIVE_GAME.md)

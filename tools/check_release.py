@@ -35,7 +35,12 @@ TOOL_FILES = frozenset({
     "tools/install-dfhack.ps1", "tools/start-game.ps1",
 })
 GITHUB_FILES = frozenset({".github/workflows/ci.yml", ".github/dependabot.yml"})
-DOC_FILES = frozenset({"docs/model-connections.md", "docs/fixture-setup.md", "docs/benchmarking.md", "docs/native-loop-proof.md", "docs/native-care-pilot.md"})
+DOC_FILES = frozenset({
+    "docs/model-connections.md", "docs/fixture-setup.md", "docs/benchmarking.md",
+    "docs/native-loop-proof.md", "docs/native-care-pilot.md", "docs/native-care-season.md",
+    "docs/assets/native-care-season.svg", "docs/data/native-care-season.json",
+    "docs/data/native-care-season.csv",
+})
 EGG_INFO_FILES = frozenset({
     "PKG-INFO", "SOURCES.txt", "dependency_links.txt", "entry_points.txt",
     "requires.txt", "top_level.txt",
