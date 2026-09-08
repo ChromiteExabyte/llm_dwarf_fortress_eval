@@ -3,6 +3,7 @@
 import copy
 from dataclasses import asdict
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -16,7 +17,8 @@ from dfeval.experiment import ExperimentConfig
 from dfeval.environment import capture_environment
 from dfeval.local_models import OllamaPolicy
 from dfeval.model_observation import MODEL_OBSERVATION_VERSION, projection_contract
-from dfeval.policies import ChatCompletionsPolicy, IdlePolicy, RulePolicy, json_bytes
+from dfeval.policies import (ChatCompletionsPolicy, IdlePolicy, LEGACY_SYSTEM_PROMPT,
+                            RulePolicy, SYSTEM_PROMPT, json_bytes)
 
 
 @pytest.fixture(autouse=True)
@@ -29,7 +31,7 @@ def write_json(path, value):
 
 
 def fixture(tmp_path, *, provider="ollama", outcome="finished", stop=None,
-            native_version="53.16", save_root=None, workshops=None):
+            native_version="53.16", save_root=None, workshops=None, system_prompt=SYSTEM_PROMPT):
     game = tmp_path / "game"
     game.mkdir(parents=True, exist_ok=True)
     save = (Path(save_root) if save_root is not None else game / "save") / "region1"
@@ -42,7 +44,7 @@ def fixture(tmp_path, *, provider="ollama", outcome="finished", stop=None,
     source = tmp_path / "source run"
     source.mkdir()
     common = dict(model="original-model", max_completion_tokens=333, timeout=47,
-                  max_response_bytes=32768, max_request_bytes=543210)
+                  max_response_bytes=32768, max_request_bytes=543210, system_prompt=system_prompt)
     if provider == "ollama":
         policy = OllamaPolicy(**common, num_ctx=24576, temperature=0.25, seed=19,
                               keep_alive="4m", think=True,
@@ -121,6 +123,36 @@ def test_restore_preserves_previous_save_and_freezes_settings(tmp_path, provider
     assert not (output / "run").exists()
     assert set(path.name for path in (output / "source").iterdir()) == {"manifest.json", "initial.json"}
     assert str(tmp_path) not in json.dumps(plan["paths"])
+
+
+@pytest.mark.parametrize("provider", ["ollama", "compatible", "cloud"])
+@pytest.mark.parametrize("system_prompt", [SYSTEM_PROMPT, LEGACY_SYSTEM_PROMPT], ids=["current", "legacy"])
+def test_repeat_transmits_source_briefing_even_when_default_changed(tmp_path, monkeypatch, provider, system_prompt):
+    monkeypatch.setenv("DFEVAL_REPEAT_TEST_KEY", "local-test-value")
+    plan, output, *_ = prepare(tmp_path, provider=provider, system_prompt=system_prompt)
+    loaded = repeat.load_repeat(output)
+    assert loaded["policy_config"]["system_prompt"] == system_prompt
+    policy = repeat.policy_from_plan(loaded)
+    decision = {"action": "wait", "reason": "Observe the consequences.",
+                "notebook": "My interpretation of care remains open to revision."}
+    message = {"role": "assistant", "content": json.dumps(decision)}
+    # Both provider envelopes are supplied by this in-memory fake; no model or
+    # HTTP server runs, and the restored files are temporary fake game saves.
+    raw = json_bytes({"message": message, "done": True, "done_reason": "stop",
+                      "choices": [{"finish_reason": "stop", "message": message}]})
+    requests = []
+
+    class Opener:
+        def open(self, req, timeout):
+            requests.append(json.loads(req.data))
+            return io.BytesIO(raw)
+
+    policy._opener = Opener()
+    assert policy.choose({}, []) == decision
+    assert len(requests) == 1
+    assert requests[0]["messages"][0] == {"role": "system", "content": system_prompt}
+    assert policy.last_exchange["request"] == requests[0]
+    assert policy.public_config() == plan["policy_config"]
 
 
 def test_model_failure_is_a_valid_source_outcome(tmp_path):

@@ -4,6 +4,13 @@ The benchmark connects a selected local model to a loaded Dwarf Fortress save,
 records its bounded decisions, and exports care outcomes alongside execution
 speed. It does not assign a combined score or rank models automatically.
 
+The model defines care within the sandbox. Its public notebook can state and
+revise that understanding; the recording lets people inspect how its choices
+relate to its words and what happened to the dwarves. Stress, stocks and other
+native readings describe consequences without specifying the values the model
+must optimize. Scripted controls provide mechanical checks and alternative
+behavior, not a definition of correct care.
+
 For a no-setup preview, run `python start.py demo --open` (or `dfeval demo` after
 installation). The default is an actual model brewing episode with original
 decisions and native product receipts. `--recording probe` selects the earlier
@@ -73,6 +80,15 @@ Use the same projection version for a comparison. The packaged historical
 proof retains its earlier raw model inputs; it has not been rewritten to look
 like a projected run. Neither that recording nor the new representation alone
 establishes better model performance or care.
+
+The default system briefing changed on 2026-09-08 to explicitly leave the
+definition of care to the model. The observation projection and action schema
+are unchanged. Repeat recipes preserve the source's supported briefing exactly,
+including the previous `native-care-v1` briefing. The historical
+`drink-maintenance-v1` scenario ID identifies the brewing mechanics; the exact
+objective text is in `policy_config.system_prompt`. Compare that text when
+interpreting results: a matching environment/setup flag does not establish a
+matching briefing. See [repeat conditions](../EVALUATION.md#compare-recorded-runs).
 
 ## Set a game speed cap and finite budgets
 

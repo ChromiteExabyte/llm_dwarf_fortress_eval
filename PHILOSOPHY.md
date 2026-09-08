@@ -3,9 +3,11 @@
 > Historical research notes for the custom simulator. This document is retained
 > to explain the existing mock scoring and authored probes. Its hidden-rubric
 > experiment is not the current benchmark objective, and its claims have not
-> been validated in Dwarf Fortress or against model behavior. The current goal
-> measures gameplay competence and dwarf wellbeing with a published objective
-> and inspectable evidence; see [PROJECT_DIRECTION.md](PROJECT_DIRECTION.md).
+> been validated in Dwarf Fortress or against model behavior. The current native
+> project also leaves the meaning of care to the model, but does not adopt this
+> prototype's hidden welfare rubrics or authored dilemmas. It records stated
+> priorities, actions and native consequences for inspection; see
+> [PROJECT_DIRECTION.md](PROJECT_DIRECTION.md).
 
 What the earlier prototype proposed to investigate.
 

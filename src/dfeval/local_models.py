@@ -156,7 +156,8 @@ class OllamaPolicy(ChatCompletionsPolicy):
                  max_response_bytes: int = 65536, max_request_bytes: int = 2_000_000,
                  num_ctx: int = 16384, temperature: float = 0, seed: int = 0,
                  keep_alive: str | int = "10m", think: bool = False,
-                 model_identity: dict[str, Any] | None = None, opener: Any = None):
+                 model_identity: dict[str, Any] | None = None, opener: Any = None,
+                 system_prompt: str = SYSTEM_PROMPT):
         base = _base_url(base_url)
         if isinstance(model, str) and _cloud_tag(model):
             raise ValueError("Ollama cloud-tag models are not local inference; select a downloaded local model")
@@ -174,7 +175,7 @@ class OllamaPolicy(ChatCompletionsPolicy):
         super().__init__(mode="local", model=model, endpoint=_endpoint(base, "v1", "chat/completions"),
                          api_key_env=api_key_env, max_completion_tokens=max_completion_tokens, timeout=timeout,
                          max_response_bytes=max_response_bytes, max_request_bytes=max_request_bytes,
-                         response_format="json_schema", opener=opener)
+                         response_format="json_schema", opener=opener, system_prompt=system_prompt)
         self.base_url, self.endpoint = base, _endpoint(base, "api", "chat")
         self.num_ctx, self.temperature, self.seed = num_ctx, temperature, seed
         self.keep_alive, self.think = keep_alive, think
@@ -187,14 +188,14 @@ class OllamaPolicy(ChatCompletionsPolicy):
                 "max_completion_tokens": self.max_completion_tokens, "token_limit_field": "options.num_predict",
                 "timeout": self.timeout, "max_response_bytes": self.max_response_bytes,
                 "max_request_bytes": self.max_request_bytes, "response_format": self.response_format,
-                "system_prompt": SYSTEM_PROMPT, "options": {"num_ctx": self.num_ctx, "temperature": self.temperature,
+                "system_prompt": self.system_prompt, "options": {"num_ctx": self.num_ctx, "temperature": self.temperature,
                                                            "seed": self.seed, "num_predict": self.max_completion_tokens},
                 "keep_alive": self.keep_alive, "think": self.think, "model_identity": copy.deepcopy(self.model_identity)}
 
     def choose(self, observation: dict[str, Any], history: list[dict[str, Any]]) -> dict[str, Any]:
         self.last_exchange = None
         payload = {"model": self.model, "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": model_input_bytes(observation, history).decode("utf-8")},
         ], "format": self.response_format["json_schema"]["schema"], "stream": False,
             "options": {"num_predict": self._call_tokens, "num_ctx": self.num_ctx,

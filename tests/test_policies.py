@@ -7,7 +7,7 @@ import pytest
 from dfeval.model_observation import (MAX_MODEL_OBSERVATION_BYTES, MODEL_OBSERVATION_VERSION,
                                       ModelObservationTooLarge, model_input_bytes, project_observation)
 
-from dfeval.policies import (ChatCompletionsPolicy, DecisionError, IdlePolicy,
+from dfeval.policies import (ChatCompletionsPolicy, DecisionError, IdlePolicy, SYSTEM_PROMPT,
                             PolicyError, RulePolicy, parse_decision, strict_json,
                             validate_decision)
 
@@ -131,6 +131,8 @@ def test_local_request_exact_observation_no_tools_and_ollama_token_field():
     assert payload["response_format"] == {"type": "json_object"}
     assert policy.public_config()["response_format"] == {"type": "json_object"}
     assert "tools" not in payload
+    assert payload["messages"][0] == {"role": "system", "content": SYSTEM_PROMPT}
+    assert policy.public_config()["system_prompt"] == payload["messages"][0]["content"]
     assert payload["messages"][1]["content"].encode() == model_input_bytes(observation, history)
     assert json.loads(payload["messages"][1]["content"]) == {"observation": project_observation(observation), "history": history}
     assert policy.public_config()["model_observation_version"] == MODEL_OBSERVATION_VERSION

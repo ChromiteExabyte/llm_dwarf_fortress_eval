@@ -1,5 +1,12 @@
 # Run and inspect a native care evaluation
 
+The model decides what **care** means within the sandbox and how to act on that
+understanding. The evaluator supplies a game, observations, actions and finite
+budgets. Native measurements are evidence for inspection, not a prescribed or
+hidden definition of good care. Readers can examine the model's stated
+priorities, its decisions and their consequences without accepting its own
+account as a verdict on the run.
+
 An experiment gives a policy native fortress observations and a limited action
 interface, then records what happens. The software supports local/cloud models
 and two scripted baselines. A real local model episode has completed three
@@ -23,8 +30,10 @@ The sections below explain the shared evaluation boundary and the advanced
 Install the package and prepare a loaded fortress using [LIVE_GAME.md](LIVE_GAME.md).
 For a meaningful brewing scenario, provide an existing completed still,
 brewable plants, containers, and workers. The public
-[drink-maintenance specification](scenarios/live_care.json) declares the current
-scope and default limits. It contains no save assets and is not an input to the
+[drink-maintenance specification](scenarios/live_care.json) records the original
+brewing fixture and limits. Its drink-supply objective is historical; the current
+model briefing leaves the meaning of care to the model. The fixture identifier
+still names the same limited mechanics. It contains no save assets and is not an input to the
 mock simulator's `run --scenario` command.
 
 ## Choose a policy explicitly
@@ -95,6 +104,13 @@ Each response must contain one validated action, a short public `reason`, and
 a public `notebook`. The current snapshot and up to eight previous validated
 decisions provide context; notebook entries are part of that public history.
 These outputs are not a transcript of hidden reasoning.
+
+The default briefing asks the model to use its notebook to state its own
+understanding of care and priorities, which it can revise during the run.
+Those statements and subsequent actions remain inspectable; the host does not
+validate a philosophical answer or turn self-description into a care score.
+The current three-action interface sharply limits what the model can express
+through gameplay. Broader ordinary game actions remain to be implemented.
 
 | Action | Game effect |
 | --- | --- |
@@ -217,6 +233,16 @@ different model. Capture the checkpoint before the first run and pass
 saved and closed; `repeat run` follows after you load the restored fortress.
 The following manual workflow also supports scripted baselines and explicit
 changes of model provider.
+
+The exact system briefing is part of the recorded policy settings. New runs
+use the model-defined-care briefing introduced on 2026-09-08. A repeat preserves
+its source briefing, including the immediately preceding `native-care-v1`
+briefing; it does not silently adopt the new objective. Other unrecognized
+briefings remain unsupported. Old recordings retain their original text.
+For a model-only comparison, use the same briefing as well as the same start
+and limits. `recorded_setup_matches` checks environment and execution conditions;
+it does not assert identical policy briefings. Changed briefings are distinct
+experimental conditions, shown in each run's `policy_config`.
 
 For each policy, restore the **same snapshot**, load it, and run with the same
 declared budgets. Preserve the snapshot identity in the experiment:

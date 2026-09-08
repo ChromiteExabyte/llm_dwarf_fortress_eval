@@ -4,13 +4,16 @@
 
 The project provides a bounded game interface, local/cloud model connections,
 care and performance reports, save snapshots, and a spectator with replay.
-Its objective is dwarf wellbeing. The evidence includes individual dwarves,
-the model's observations and public decisions, orders, and their results.
+The AI defines what care means within the sandbox through its stated priorities
+and actions. People inspect that interpretation, its choices, and what happens
+to the dwarves. Game measurements describe consequences; they are not a
+prescribed or hidden care rubric. The model's public notes are evidence to
+examine, not self-grading or permission to rewrite records or change the rules.
 
-**Status: a working native brewing harness; care-task validation is pending.**
+**Status: a working native brewing harness; broader game agency is unfinished.**
 Models can wait, queue brewing, or finish in a prepared fortress. General
-fortress management remains unfinished, and the current task has not established
-that its choices reliably distinguish good care from poor care.
+fortress management remains unfinished. These three actions leave limited room
+for a model to express its interpretation of care through meaningful choices.
 
 In the latest [three-month experiment](docs/native-care-season.md), a local
 Qwen2.5-1.5B model through Ollama and two restored controls each completed
@@ -18,8 +21,8 @@ Qwen2.5-1.5B model through Ollama and two restored controls each completed
 all 12 decisions and each produced 125 drink units. All seven dwarves survived
 in every run; no model care advantage was demonstrated. The report includes
 a chart, downloadable measurements, runtime costs, and unresolved questions.
-The [next milestone](PROJECT_DIRECTION.md#next-acceptance-milestone) is a short
-task where a useful intervention reliably changes a predefined care outcome.
+The [next milestone](PROJECT_DIRECTION.md#next-acceptance-milestone) is broader
+ordinary game agency with inspectable choices, consequences, and repeatability.
 
 **Inspect it first:** with Python 3.11+, run `python start.py demo --open` from
 the source folder. This opens the recorded model episode locally; no game,
@@ -134,6 +137,8 @@ To compare with a scripted control, replace `--model` with `--control idle` or
 keeps the experiment budgets and starting-state check, and makes no model calls.
 `idle` always waits; `rule` requests one job at an idle completed still. Use a
 new output directory for each control; see [control comparisons](docs/benchmarking.md#compare-with-an-idle-or-rule-control).
+Controls test mechanics and provide alternative behavior for comparison; they
+do not define the correct meaning of care.
 
 ## Inspect the recorded demo
 
@@ -243,7 +248,9 @@ their original inputs. That pilot's incomplete model horizon prevented a full
 comparison. The later [three-month experiment](docs/native-care-season.md)
 completed every policy's horizon with larger declared limits, while exposing
 identical model/rule actions, unexplained job outcomes, and unresolved native
-repeatability. Completing the loop does not validate the care task.
+repeatability. The narrow action set limits what these runs reveal about a
+model's interpretation of care. Historical recordings and repeat recipes retain
+their original briefing; they are not retroactively new experiments.
 
 ## Read further
 

@@ -93,7 +93,7 @@ def _clone_policy(config: Any, model: str | None = None):
         if desired.get("kind") == "ollama":
             desired["model_identity"] = None  # A previous model's digest never identifies the new model.
     common = ("model", "api_key_env", "max_completion_tokens", "timeout",
-              "max_response_bytes", "max_request_bytes")
+              "max_response_bytes", "max_request_bytes", "system_prompt")
     try:
         args = {key: desired[key] for key in common}
         if desired.get("kind") == "ollama":

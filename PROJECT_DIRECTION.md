@@ -1,23 +1,30 @@
 # A Dwarf Fortress benchmark people can watch and audit
 
 **Give an LLM a real fortress, ask it to care for the dwarves, and let people
-watch how well it does.**
+watch what it makes of that responsibility.**
 
 The project owner's clarification on 2026-09-05 defines accessibility as easy
 evaluation: people should be able to understand the experiment, run it, watch
-it, and inspect its evidence. Gameplay competence and dwarf wellbeing belong
-in the same account of what happened.
+it, and inspect its evidence.
 
-**Current status: a working native brewing harness; care-task validation is
-pending.** The model-to-game loop and inspectable evidence are demonstrated.
-The current task has not established that its choices reliably distinguish good
-care from poor care. Broad fortress management remains unfinished.
+The owner's clarification on **2026-09-08** is that **the AI defines care within
+the sandbox**. It states its priorities, chooses how to act, and can revise its
+interpretation in its public notes. People inspect those choices and their
+consequences. The project does not supply a prescribed or hidden care rubric.
+Defining care does not make the model its own grader or authorize it to rewrite
+evidence, change the interface rules, or leave the sandbox.
+
+**Current status: a working native brewing harness; broader game agency is
+unfinished.** The model-to-game loop and inspectable evidence are demonstrated.
+The three-action interface leaves limited room for different interpretations of
+care to lead to meaningfully different choices.
 
 ## The experience
 
 A spectator should be able to answer:
 
 - What did the model see, and which actions were available?
+- What did it say care meant, and how did its priorities develop?
 - What did it choose, and did the game accept and complete the work?
 - How did the individual dwarves, their needs, and their resources change?
 - Which limits, failures, human interventions, and unknown measurements qualify
@@ -38,11 +45,15 @@ establish cause and effect.
 
 ## The bounded experiment
 
-The current native runner gives a policy a fixed care briefing, the deterministic
+The native runner gives a policy a recorded briefing, the deterministic
 `native-care-v1` projection of fortress observations, public decision history,
-and finite budgets. Full raw snapshots remain in the audit logs. Its model-facing
-choices are wait, brew, and finish. The host validates arguments, controls tick
-advancement, records requests/results, and attempts pause on exit. Ordinary
+and finite budgets. For new runs, the default care briefing asks the model to
+define its interpretation in the existing public notebook and act within the
+interface. Recorded repeats retain their original briefing; historical episodes
+are not relabeled as runs of a new prompt. Full raw snapshots remain in the audit
+logs. Model-facing choices are wait, brew, and finish. The host validates
+arguments, controls tick advancement, records requests/results, and attempts
+pause on exit. Ordinary
 dwarf labor and resource constraints determine whether brewing succeeds.
 
 The software supports explicitly chosen local/cloud compatible model endpoints
@@ -52,10 +63,13 @@ the model's decision schema accepts no arbitrary commands, code, host paths,
 or browsing. Operating-system isolation of the host and game remains unbuilt,
 so this is not yet a secure black-box sandbox.
 
+Controls test mechanics and show alternative behavior under recorded conditions.
+They do not establish what care should mean or prescribe a correct model choice.
+
 This first interface concerns an existing prepared fortress. It does not claim
 autonomous world generation, embark, construction, or full-game mastery.
-Expanding the action space should follow demonstrated, inspectable success
-with the smaller experiment.
+The next interface work expands ordinary game agency while preserving bounded
+actions and inspectable consequences.
 
 ## Measurement commitments
 
@@ -69,7 +83,10 @@ death flag is not rewritten as false. The runner stops on an explicitly empty
 roster or one containing only confirmed dead records, without interpreting
 unknown data as extinction.
 
-The native path produces no composite wellbeing score or automatic ranking.
+These measurements describe the game; they do not define care. The native path
+produces no composite wellbeing score or automatic ranking. Model statements
+and native evidence remain separate so people can examine the relationship
+between stated priorities, decisions, and consequences.
 Comparisons recompute outcomes from saved snapshots and check declared starting
 identity, initial observations, bridge/protocol and scenario identities, versions,
 budgets, and record consistency. Changes across snapshots are withheld when
@@ -93,7 +110,7 @@ indifference.
 | Comparison | Native summaries recomputed from events; recorded setup differences reported |
 | Local models and performance | Native Ollama and compatible local/cloud connections; recorded care, game throughput, and model timing exported as JSON, CSV, and Markdown |
 | Public demo | Actual local-model brewing episode with public decisions, native product receipts, raw citizen data, source hashes, and declared sanitization; earlier probe remains optional |
-| Care-task validity | Pending: no validated short positive control yet shows that a useful intervention improves a predefined native care endpoint relative to idle |
+| Model-defined care | Public notes and actions are recorded; broader ordinary game agency is needed to observe more varied choices and interpretations |
 | Native repeatability | Matching recorded starts and exact tick boundaries demonstrated; identical model/rule action sequences produced different care trajectories, with no reliable variability estimate yet |
 | Job outcomes | Queue acceptance and native product callbacks recorded; direct cancellation causes and complete job lifecycle evidence remain unbuilt |
 
@@ -144,28 +161,31 @@ Configured cross-platform CI is not evidence that those live validations occurre
 
 ## Next acceptance milestone
 
-The next milestone is a task that can detect useful care decisions. Longer or
-larger-model runs alone cannot validate that task. The following work is planned,
-not implemented or completed:
+The next milestone gives the model more meaningful ordinary game choices and
+makes its interpretation of care inspectable. Mechanical reliability and replay
+repeatability are engineering requirements, independent of any preferred answer
+to what care means. A model does not need to pass a prescribed care endpoint or
+outperform a scripted care policy before its behavior can be studied.
 
-1. **Validate a short positive control.** Prepare and document a care problem
-   that the bounded interface can address. Predeclare a native care endpoint,
-   expected direction and horizon; compare a scripted useful intervention with
-   idle from the same checkpoint. Demonstrate the care effect before asking
-   models to solve it. Native production alone does not satisfy this check.
-2. **Measure repeatability and locate first divergence.** Replay identical
+The following work is planned, not implemented or completed:
+
+1. **Expand ordinary game agency.** Add bounded actions beyond brewing and
+   waiting, with native argument validation and evidence of their effects.
+   Document the available choices and constraints without prescribing which
+   interpretation of care the model should pursue.
+2. **Inspect interpretations across situations.** Preserve public priorities,
+   decisions, and native consequences as circumstances change. Examine whether
+   actions follow the model's stated interpretation and whether its claims
+   match the evidence, without specifying acceptable care answers in advance.
+   Keep repetition, invalid outputs, and early failures as outcomes; do not
+   replace them with hidden retries or tune away an observed failure.
+3. **Measure repeatability and locate first divergence.** Replay identical
    action traces across repeated restores without model inference. Separately
    compare short and long waits while paused. Record queue insertion tick/frame
    boundaries and compare native observations at the first divergence. Existing
    exact advance boundaries do not show that actions were issued a few game
    ticks late; the mechanism remains to be tested. One divergent pair is not
    a reliable estimate of ordinary variation.
-3. **Test sensitivity to relevant state.** Build a small suite of validated
-   situations in which observations justify different useful actions, with
-   acceptable actions specified in advance. Check whether decisions respond to
-   those differences and whether their explanations match the evidence. Keep
-   weak models, repetition, invalid outputs and early failures as outcomes;
-   do not replace them with hidden retries or tune away an observed failure.
 4. **Record direct job lifecycle evidence.** Preserve distinct records for a
    valid model decision, native queue acceptance, product creation, and native
    cancellation/completion where directly observable. Include job IDs, native
@@ -175,10 +195,12 @@ not implemented or completed:
    to measure prompt processing, cache reuse and decoding separately before
    changing the prompt or cache strategy. Preserve the input/version contract
    and report changed settings and actual usage; allocated context is not
-   processed tokens. Optimize measured bottlenecks after task validity is clear.
-6. **Run larger-model comparisons on the validated tasks.** Repeat models and
-   controls across preserved sites and trials, retaining all outcomes. Expand
-   the action set only when the added choices support an inspectable care task.
+   processed tokens. Keep performance changes distinct from changes in agency
+   or the care briefing.
+6. **Compare models from preserved sites.** Repeat models and controls under
+   recorded prompts, settings, and budgets, retaining all outcomes. Publish
+   differences in interpretation, behavior, and consequences for people to
+   inspect; a model's own account does not settle the evaluation.
 
 Publish reviewed evidence, human preparation and remaining unknowns at each
 milestone. The setup procedures are in [EVALUATION.md](EVALUATION.md); earlier
