@@ -36,6 +36,7 @@ TOOL_FILES = frozenset({
 })
 GITHUB_FILES = frozenset({".github/workflows/ci.yml", ".github/dependabot.yml"})
 DOC_FILES = frozenset({
+    "docs/runtime.md",
     "docs/model-connections.md", "docs/fixture-setup.md", "docs/benchmarking.md",
     "docs/native-loop-proof.md", "docs/native-care-pilot.md", "docs/native-care-season.md",
     "docs/assets/native-care-season.svg", "docs/data/native-care-season.json",
@@ -93,7 +94,7 @@ def _blocked_reason(parts: list[str]) -> str | None:
         return "game/runtime, save/run output, cache, or private configuration path is excluded"
     name = lowered[-1] if lowered else ""
     if any(part.startswith(".env") for part in lowered) or name in {
-        "credentials", "credentials.json", "token.json", "tokens.json", "id_rsa", "id_ed25519",
+        "credentials", "credentials.json", "token.json", "tokens.json", "runtime-connection.json", "id_rsa", "id_ed25519",
     } or name.endswith((".pem", ".key")) or name.startswith("service_account"):
         return "credential/environment filename is excluded"
     if Path(name).suffix in BINARY_SUFFIXES:

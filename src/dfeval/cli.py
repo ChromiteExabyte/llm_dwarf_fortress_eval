@@ -596,6 +596,9 @@ def main(argv: list[str] | None = None) -> int:
                 "Legacy run/baselines/sweep/score commands use the earlier mock simulator."))
     sub = p.add_subparsers(dest="cmd", title="commands", metavar="COMMAND", required=True)
 
+    from .runtime_cli import add_parsers as add_runtime_parsers
+    add_runtime_parsers(sub)
+
     game_default = os.environ.get("DFEVAL_DF_PATH") or "dwarfFortressItself"
     path_help = "game directory (default: DFEVAL_DF_PATH, otherwise ./dwarfFortressItself)"
 

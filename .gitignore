@@ -26,6 +26,8 @@ saves/
 
 # Raw evidence can contain machine paths, prompts and model responses.
 runs/
+# Development inference broker credentials, wherever its session is created.
+runtime-connection.json
 
 # Credentials and editor/agent state stay local.
 .env
