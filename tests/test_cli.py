@@ -139,3 +139,37 @@ def test_watch_closes_socket_without_blocking_if_server_thread_cannot_start(monk
     monkeypatch.setattr(experiment, "run_experiment", lambda *a, **k: pytest.fail("Game must not be contacted"))
     assert cli.main(["experiment", "--policy", "idle", "--watch", "--out", str(tmp_path / "run")]) == 1
     assert server.closed
+
+
+def test_export_native_demo_through_cli_preserves_source_and_existing_output(tmp_path, capsys):
+    import json
+    from dfeval.demo import write_demo
+
+    source = write_demo(tmp_path / "native run")
+    original = {file.name: file.read_bytes() for file in source.iterdir() if file.is_file()}
+    output = tmp_path / "fortress 矮人.html"
+    arguments = ["export", "--run", str(source), "--out", str(output), "--json"]
+    assert cli.main(arguments) == 0
+    result = json.loads(capsys.readouterr().out)
+    exported = output.read_bytes()
+    assert result["path"] == str(output.resolve())
+    assert result["bytes"] == len(exported)
+    assert b'id="embedded-recording"' in exported
+    assert cli.main(arguments) == 1
+    assert "Standalone export:" in capsys.readouterr().err
+    assert output.read_bytes() == exported
+    assert {file.name: file.read_bytes() for file in source.iterdir() if file.is_file()} == original
+
+
+def test_export_browser_failure_keeps_successful_export(tmp_path, monkeypatch, capsys):
+    import webbrowser
+    from dfeval.demo import write_demo
+
+    source = write_demo(tmp_path / "native run")
+    output = tmp_path / "fortress.html"
+    seen = []
+    monkeypatch.setattr(webbrowser, "open", lambda uri: seen.append(uri) or False)
+    assert cli.main(["export", "--run", str(source), "--out", str(output), "--open"]) == 0
+    assert seen == [output.resolve().as_uri()]
+    assert output.is_file()
+    assert "Export succeeded" in capsys.readouterr().err

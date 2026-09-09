@@ -32,7 +32,7 @@ include = ["dfeval", "dfeval.*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-dfeval = ["bridge/lua/*.lua", "static/*.html", "static/*.css", "static/*.js", "examples/*.json"]
+dfeval = ["bridge/lua/*.lua", "static/*.html", "static/*.css", "static/*.js", "static/LICENSE.txt", "examples/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -177,6 +177,58 @@ unknown. Missing calls suppress complete aggregate totals, while known subsets
 and per-call values remain in JSON. Rates use ratios of totals, not averages
 of individual rates. None measures graphical FPS or establishes better care.
 
+## Export a standalone recording
+
+The local spectator can follow a recording while it grows. For a portable
+copy to inspect later, export a stable native recording as one HTML file:
+
+```sh
+python start.py export --run runs/model-a --out runs/model-a.html --open
+```
+
+The output's parent directory must exist. Use a new `.html` filename outside
+the source run; existing files are never overwritten. `--open` is optional.
+`--json` prints output size/hash, embedded evidence hashes, recording status,
+and omissions. The export makes no game or model calls and does not change
+the source recording. If source files change during capture, export fails;
+retry after the recorder stops writing.
+
+Open the HTML file directly in a browser on another computer. The viewer,
+styles, data, and allowlisted original evidence files are embedded. There is
+no polling, server, external asset, or model connection. The public journal
+shows the model's notebook and reason verbatim, with a link back to each
+decision. By default it stops at the replay position; **Show full recording**
+explicitly reveals later entries. These are public outputs, not hidden
+reasoning. Missing notes remain missing, rather than being inferred from
+actions. The experiment briefing shows the exact recorded prompt and budgets,
+including historical instructions; unknown or conflicting records stay
+identified as such.
+
+This preserves an inspectable capture, not a claim of successful care or a
+new simulation. Failed and incomplete native recordings can be exported and
+retain their status and errors. Unknown and mock recordings are rejected.
+Recorded video/frame images are omitted; the export declares these omissions
+and disables game-window capture. Native measurements and references remain
+evidence of what the recorder observed, not proof that a nearby action caused
+a change. The exporter bounds original evidence at 32 MiB in aggregate and
+the resulting HTML at 64 MiB; larger recordings need the local viewer.
+
+**Review before sharing:** downloads contain the original bytes, which may
+include private prompts, responses, paths, or other local details. This command
+does not sanitize or upload them. SHA-256 hashes help check those bytes; they
+do not authenticate the author or prove the game state. The packaged demo is
+already a reviewed public excerpt and is an easy first export:
+
+```sh
+python start.py demo --out runs/offline-demo
+python start.py export --run runs/offline-demo --out runs/fortress.html --open
+```
+
+Keep the raw run directory and starting-save snapshot for model repeats. The
+HTML is a viewing artifact; `repeat prepare` still consumes the original run
+and verified checkpoint. A standalone viewer does not bundle Dwarf Fortress,
+DFHack, a model runtime, or weights.
+
 ## Export comparisons from existing runs
 
 ```sh

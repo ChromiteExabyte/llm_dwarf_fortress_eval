@@ -12,7 +12,7 @@
   <a class="skip-link" href="#main">Skip to the recording</a>
   <header class="masthead">
     <div class="brand"><span class="brand-mark" aria-hidden="true">◆</span><div><span class="eyebrow">DFEVAL / SPECTATOR</span><p>Fortress Observatory</p></div></div>
-    <div class="header-status"><span class="local-badge">LOCAL · READ ONLY</span><span id="connection" role="status">Opening recording…</span></div>
+    <div class="header-status"><span class="local-badge" id="source-badge">LOCAL · READ ONLY</span><span id="connection" role="status">Opening recording…</span></div>
   </header>
   <main id="main">
     <section class="intro" aria-labelledby="run-title">
@@ -20,7 +20,14 @@
       <div class="run-meta"><span class="status-chip" id="recording-status">Reading log</span><p id="versions">Game versions unavailable</p><p id="record-count">No snapshots loaded</p></div>
     </section>
     <div id="notice" class="notice" role="status" hidden></div>
+    <div id="standalone-note" class="notice" hidden></div>
     <div id="errors" class="notice warning" role="alert" hidden></div>
+    <section class="panel briefing-panel" aria-labelledby="briefing-title">
+      <div class="panel-head"><div><p class="eyebrow">THE RECORDED EXPERIMENT</p><h2 id="briefing-title">Experiment briefing</h2></div><span id="policy-type" class="status-chip">Policy unknown</span></div>
+      <dl class="experiment-facts"><div><dt>Selected model</dt><dd id="experiment-model">Unknown</dd></div><div><dt>Policy kind</dt><dd id="experiment-policy">Unknown</dd></div></dl>
+      <details><summary>Exact recorded system prompt</summary><p class="small muted" id="briefing-status">No recorded briefing is available.</p><pre id="experiment-prompt" tabindex="0" aria-label="Exact recorded system prompt"></pre></details>
+      <details><summary>Recorded budgets and scenario</summary><p class="small muted">Missing settings remain unknown. These are the recorded limits and setup, not a care score.</p><pre id="experiment-settings" tabindex="0" aria-label="Recorded experiment budgets and scenario">No recorded settings are available.</pre></details>
+    </section>
     <section class="metrics" aria-label="Native measurements at the selected snapshot">
       <article class="metric"><p class="eyebrow">CURRENT CITIZENS</p><strong id="population">—</strong><span id="population-note">Native citizen records</span></article>
       <article class="metric"><p class="eyebrow">DRINK STOCK</p><strong id="drink">—</strong><span>Native stack units · access unverified</span></article>
@@ -29,16 +36,16 @@
     </section>
     <div class="primary-grid">
       <section class="panel stage-panel" aria-labelledby="window-title">
-        <div class="panel-head"><div><p class="eyebrow">THE ACTUAL GAME</p><h2 id="window-title">Fortress window</h2></div><div class="segmented" aria-label="Video source"><button type="button" id="frames-mode" aria-pressed="true">Recorded frames</button><button type="button" id="live-mode" aria-pressed="false">Live window</button></div></div>
+        <div class="panel-head"><div><p class="eyebrow">THE ACTUAL GAME</p><h2 id="window-title">Fortress window</h2></div><div class="segmented" aria-label="Video source"><button type="button" id="frames-mode" aria-pressed="true">Recorded frames</button><button type="button" id="live-mode" aria-pressed="false" data-live-control>Live window</button></div></div>
         <div class="visual-stage">
-          <video id="live-video" autoplay muted playsinline controls hidden aria-label="User-selected live game window"></video>
+          <video id="live-video" autoplay muted playsinline controls hidden aria-label="User-selected live game window" data-live-control></video>
           <img id="recorded-frame" alt="Recorded game frame at this point in the evidence timeline" hidden>
-          <div class="stage-empty" id="stage-empty"><span class="empty-mark" aria-hidden="true">◇</span><h3 id="stage-empty-title">This recording has no game frames.</h3><p id="stage-empty-copy">The measurements below come from Dwarf Fortress. Optional window video is a separate, local view.</p><button type="button" class="primary" id="choose-window">Choose game window</button></div>
+          <div class="stage-empty" id="stage-empty"><span class="empty-mark" aria-hidden="true">◇</span><h3 id="stage-empty-title">This recording has no game frames.</h3><p id="stage-empty-copy">The measurements below come from Dwarf Fortress. Optional window video is a separate, local view.</p><button type="button" class="primary" id="choose-window" data-live-control>Choose game window</button></div>
           <span class="source-label" id="video-label">NO VIDEO CONNECTED</span>
         </div>
-        <div class="video-footer"><p id="video-note">Recorded frames, when present, follow the playhead. A shared live window does not rewind.</p><div class="button-row"><button type="button" id="capture-button">Share game window</button><button type="button" id="stop-capture" hidden>Stop sharing</button><button type="button" id="record-video" hidden>Record video</button><a id="download-video" class="button-link" hidden>Download video</a></div></div>
+        <div class="video-footer"><p id="video-note">Recorded frames, when present, follow the playhead. A shared live window does not rewind.</p><div class="button-row" data-live-control><button type="button" id="capture-button">Share game window</button><button type="button" id="stop-capture" hidden>Stop sharing</button><button type="button" id="record-video" hidden>Record video</button><a id="download-video" class="button-link" hidden>Download video</a></div></div>
         <div class="timeline" aria-label="Recorded snapshot replay">
-          <div class="timeline-top"><div class="button-row"><button type="button" id="previous" aria-label="Previous recorded snapshot">←</button><button type="button" class="primary" id="play" aria-label="Play recorded snapshots">Play replay</button><button type="button" id="next" aria-label="Next recorded snapshot">→</button><label class="compact-label">Speed <select id="speed"><option value="1500">1×</option><option value="750">2×</option><option value="300">5×</option></select></label></div><label class="check-label"><input type="checkbox" id="follow" checked> Follow new evidence</label></div>
+          <div class="timeline-top"><div class="button-row"><button type="button" id="previous" aria-label="Previous recorded snapshot">←</button><button type="button" class="primary" id="play" aria-label="Play recorded snapshots">Play replay</button><button type="button" id="next" aria-label="Next recorded snapshot">→</button><label class="compact-label">Speed <select id="speed"><option value="1500">1×</option><option value="750">2×</option><option value="300">5×</option></select></label></div><label class="check-label" data-online-only><input type="checkbox" id="follow" checked> Follow new evidence</label></div>
           <label class="sr-only" for="playhead">Recorded snapshot</label><input id="playhead" type="range" min="0" max="0" value="0" step="1" disabled>
           <div class="timeline-caption"><strong id="snapshot-caption">Waiting for a native snapshot</strong><span id="snapshot-time">—</span></div>
         </div>
@@ -51,6 +58,13 @@
         <div class="inspector-caption"><span id="inspector-caption">Native values remain unchanged.</span><button type="button" id="copy-evidence">Copy JSON</button></div>
       </aside>
     </div>
+    <section class="panel journal-panel" aria-labelledby="journal-title">
+      <div class="panel-head"><div><p class="eyebrow">THE MODEL'S OWN PUBLIC WORDS</p><h2 id="journal-title">Public journal</h2></div><label class="check-label history-label"><input type="checkbox" id="full-history"> Show full recording, including later entries</label></div>
+      <p class="journal-intro">Recorded notebooks, reasons, and choices in order. Read them alongside the native consequences. These are public outputs, not hidden reasoning or a care grade.</p>
+      <p id="journal-scope" class="journal-scope" role="status">Journal entries follow the selected point in the recording.</p>
+      <ol id="journal-list" class="journal-list"></ol>
+      <p id="journal-empty" class="empty-note">No public journal entries at this point.</p>
+    </section>
     <div class="secondary-grid">
       <section class="panel citizens-panel" aria-labelledby="citizens-title">
         <div class="panel-head"><div><p class="eyebrow">INDIVIDUAL LIVES, INDIVIDUAL RECORDS</p><h2 id="citizens-title">Meet the citizens</h2></div><label class="search"><span class="sr-only">Search citizens by name or ID</span><input id="citizen-search" type="search" placeholder="Search a name or ID…" autocomplete="off"></label></div>
@@ -71,8 +85,8 @@
       <div class="panel-head"><div><p class="eyebrow">THE AUDIT TRAIL</p><h2 id="events-title">What happened, in order</h2></div><label class="compact-label">Show <select id="event-filter"><option value="all">All events</option><option value="decision">Decisions</option><option value="action_result">Action results</option><option value="snapshot">Snapshots</option><option value="error">Errors</option></select></label></div>
       <p id="event-count" class="event-count">No events loaded</p><ol id="event-list" class="event-list"></ol>
     </section>
-    <section class="evidence-footer" aria-labelledby="downloads-title"><div><p class="eyebrow">INSPECT IT YOURSELF</p><h2 id="downloads-title">The original evidence</h2><p>Replay needs only this run's files. No running game, model connection, or cloud service is required.</p></div><div id="downloads" class="download-links"></div></section>
+    <section class="evidence-footer" aria-labelledby="downloads-title"><div><p class="eyebrow">INSPECT IT YOURSELF</p><h2 id="downloads-title">The original evidence</h2><p id="downloads-note">Replay needs only this run's files. No running game, model connection, or cloud service is required.</p></div><div id="downloads" class="download-links"></div></section>
   </main>
-  <footer class="page-footer"><span>DFEval · Fortress Observatory</span><span>Native measurements. Visible decisions. No invented footage.</span></footer>
+  <footer class="page-footer"><span>DFEval · Fortress Observatory<span class="viewer-license" id="viewer-license">Viewer code: GPL-3.0-or-later · <a id="viewer-source" href="https://github.com/ChromiteExabyte/llm_dwarf_fortress_eval/tree/main/src/dfeval/static">Source on GitHub</a></span></span><span>Native measurements. Visible decisions. No invented footage.</span></footer>
 </body>
 </html>

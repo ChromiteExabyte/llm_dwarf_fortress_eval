@@ -1,7 +1,9 @@
 "use strict";
 (() => {
   const $ = id => document.getElementById(id);
-  const state = {data:null,index:0,eventIndex:null,citizen:null,tab:"decision",follow:true,playback:null,videoMode:"frames",stream:null,recorder:null,chunks:[],recordBytes:0,recordUrl:null,fetching:false};
+  const embeddedRecording = $("embedded-recording");
+  const standalone = embeddedRecording !== null;
+  const state = {data:null,index:-1,eventIndex:null,citizen:null,tab:"decision",follow:!standalone,fullHistory:false,playback:null,videoMode:"frames",stream:null,recorder:null,chunks:[],recordBytes:0,recordUrl:null,fetching:false};
   const fmt = value => typeof value === "number" && Number.isFinite(value) ? value.toLocaleString() : value === true ? "Yes" : value === false ? "No" : value == null ? "Unknown" : String(value);
   const nativeNumber = value => typeof value === "number" && Number.isFinite(value);
   const list = value => Array.isArray(value) ? value : [];
@@ -13,13 +15,23 @@
   const node = (tag,content,className) => {const element=document.createElement(tag);if(content!==undefined)element.textContent=content;if(className)element.className=className;return element;};
   const timeLabel = value => {if(!value)return "Timestamp unavailable";const date=new Date(value);return Number.isNaN(date.getTime())?"Timestamp unavailable":date.toLocaleString();};
   const announce = message => {text("notice",message);$("notice").hidden=!message;};
+  const eventLimit = () => {
+    const selected=state.eventIndex??wrapper().event_index;
+    return Number.isInteger(selected)?Math.min(selected,list(state.data?.events).length-1):-1;
+  };
   function stopReplay(){if(state.playback)clearInterval(state.playback);state.playback=null;text("play","Play replay");$("play").setAttribute("aria-label","Play recorded snapshots");}
   function setFollow(enabled){state.follow=enabled;$("follow").checked=enabled;}
   function selectSnapshot(index,manual=true){
     const total=state.data?.snapshots?.length||0;
-    state.index=Math.max(0,Math.min(total-1,index));
+    state.index=total?Math.max(0,Math.min(total-1,index)):-1;
     state.eventIndex=wrapper().event_index??null;
     if(manual)setFollow(false);
+    render();
+  }
+  function selectEvent(index){
+    if(!Number.isInteger(index)||index<0||index>=list(state.data?.events).length)return;
+    stopReplay();setFollow(false);state.eventIndex=index;state.tab="event";state.index=-1;
+    list(state.data?.snapshots).forEach((item,i)=>{if(Number.isInteger(item.event_index)&&item.event_index<=index)state.index=i;});
     render();
   }
   function playReplay(){
@@ -32,7 +44,7 @@
   }
   function lastDecision(){
     const events=state.data?.events||[];
-    const limit=state.eventIndex??wrapper().event_index??events.length-1;
+    const limit=eventLimit();
     for(let i=Math.min(limit,events.length-1);i>=0;i--)if(events[i].kind==="decision"&&object(events[i].decision))return events[i];
     return null;
   }
@@ -48,9 +60,9 @@
     text("paused",current.paused===true?"Paused":current.paused===false?"Running":"Unknown");
     text("game-clock",nativeNumber(current.year)&&nativeNumber(current.year_tick)?`Year ${fmt(current.year)} · tick ${fmt(current.year_tick)}`:"Native clock unavailable");
     const total=state.data?.snapshots?.length||0,selected=wrapper();
-    $("playhead").max=Math.max(0,total-1);$("playhead").value=state.index;$("playhead").disabled=total<2;
-    $("previous").disabled=state.index<=0;$("next").disabled=state.index>=total-1;$("play").disabled=total<2;
-    text("snapshot-caption",total?`Snapshot ${state.index+1} of ${total}${selected.turn!=null?` · turn ${selected.turn}`:""} · ${selected.source||"native evidence"}`:"No native snapshots recorded yet");
+    $("playhead").max=Math.max(0,total-1);$("playhead").value=Math.max(0,state.index);$("playhead").disabled=total<2;
+    $("previous").disabled=state.index<=0;$("next").disabled=!total||state.index>=total-1;$("play").disabled=total<2;
+    text("snapshot-caption",state.index>=0?`Snapshot ${state.index+1} of ${total}${selected.turn!=null?` · turn ${selected.turn}`:""} · ${selected.source||"native evidence"}`:total?"No native snapshot at or before the selected event":"No native snapshots recorded yet");
     text("snapshot-time",selected.at?timeLabel(selected.at):"No recorded wall-clock timestamp");
   }
   function renderInspector(){
@@ -59,10 +71,64 @@
     text("action-name",typeof action==="string"?action:object(action)?JSON.stringify(action):"No decision at this point");
     text("decision-reason",typeof decision?.reason==="string"?decision.reason:"This snapshot has no preceding recorded agent decision.");
     text("decision-note",decisionEvent?`Recorded at ${decisionEvent.turn==null?"an unspecified turn":`turn ${decisionEvent.turn}`}. Queued work is not proof of completion.`:"A queued job is an instruction, not proof of completed work.");
-    const value=state.tab==="snapshot"?snapshot():state.tab==="event"?event:decision;
+    const value=state.tab==="snapshot"?(state.index>=0?snapshot():null):state.tab==="event"?event:decision;
     text("inspector",asJSON(value));
     text("inspector-caption",state.tab==="event"?`Event ${fmt(event?.event)} · ${event?.kind||"none selected"}`:state.tab==="snapshot"?"Complete native snapshot; null means unavailable.":"The agent's recorded decision, reason and notes.");
     document.querySelectorAll("[data-tab]").forEach(button=>button.setAttribute("aria-selected",String(button.dataset.tab===state.tab)));
+  }
+  function renderExperiment(){
+    const experiment=object(state.data?.experiment)?state.data.experiment:{};
+    text("policy-type",experiment.is_model===true?"Model policy":experiment.is_model===false?"Non-model policy":"Policy unknown");
+    text("experiment-model",typeof experiment.model==="string"?experiment.model:experiment.is_model===false?"No model · scripted policy":"Unknown");
+    text("experiment-policy",typeof experiment.policy_kind==="string"?experiment.policy_kind:"Unknown");
+    const prompt=experiment.system_prompt;
+    text("briefing-status",typeof prompt==="string"?(prompt.length?"Exact recorded text. This may be an earlier briefing; it has not been replaced with today's default.":"An empty system prompt was recorded."):"The exact system prompt is unavailable in this recording.");
+    text("experiment-prompt",typeof prompt==="string"?prompt:"");
+    const settings={budgets:experiment.budgets??null,scenario:experiment.scenario??null};
+    text("experiment-settings",JSON.stringify(settings,null,2));
+  }
+  function journalField(decision,key,label){
+    const block=node("div",undefined,"journal-field");block.append(node("h4",label));
+    const value=decision[key];
+    if(typeof value==="string"){
+      if(value.length)block.append(node("pre",value,"journal-words"));
+      else block.append(node("p",`An empty ${key} was recorded.`,"journal-missing"));
+    }else{
+      const missing=Object.prototype.hasOwnProperty.call(decision,key)?`${label} is ${value===null?"null":"not text"} in the recorded decision.`:`No ${key} field was recorded.`;
+      block.append(node("p",missing,"journal-missing"));
+      if(value!==null&&value!==undefined)block.append(node("pre",asJSON(value),"journal-words"));
+    }
+    return block;
+  }
+  function renderJournal(){
+    const events=list(state.data?.events),limit=state.fullHistory?events.length-1:eventLimit();
+    const entries=events.map((event,index)=>({event,index})).filter(({event,index})=>index<=limit&&event.kind==="decision"&&object(event.decision));
+    const cutoff=eventLimit(),selected=events[cutoff];
+    const point=Number.isInteger(selected?.event)?`event ${fmt(selected.event)}`:cutoff>=0?`recorded event index ${fmt(cutoff)}`:null;
+    const count=`${fmt(entries.length)} ${entries.length===1?"entry":"entries"}`;
+    text("journal-scope",state.fullHistory?`${count} · full recording, including entries after the playhead (${point||"event unknown"}). The audit trail below also shows the full recording.`:`${count} ${point?`through ${point}`:"at the playhead (event unknown)"}. Later journal and audit entries stay hidden.`);
+    const target=$("journal-list");target.replaceChildren();
+    for(const {event,index} of entries){
+      const item=node("li",undefined,"journal-entry");if(index===state.eventIndex)item.classList.add("selected");
+      const heading=node("div",undefined,"journal-entry-head"),button=node("button",`${event.turn==null?"Turn unknown":`Turn ${fmt(event.turn)}`} · event ${fmt(event.event)}`);
+      button.type="button";button.setAttribute("aria-current",String(index===state.eventIndex));
+      button.addEventListener("click",()=>{selectEvent(index);$("inspector").focus({preventScroll:true});});
+      heading.append(button,node("span",timeLabel(event.at),"muted small"));
+      const action=event.decision.action,actionText=typeof action==="string"?action:asJSON(action);
+      const choice=node("p",`Recorded action: ${actionText}${Object.prototype.hasOwnProperty.call(event.decision,"workshop_id")?` · workshop ${fmt(event.decision.workshop_id)}`:""}${Object.prototype.hasOwnProperty.call(event.decision,"quantity")?` · quantity ${fmt(event.decision.quantity)}`:""}`,"journal-action");
+      const words=node("div",undefined,"journal-fields");words.append(journalField(event.decision,"notebook","Notebook"),journalField(event.decision,"reason","Public reason"));
+      const links=node("div",undefined,"journal-links");
+      let before=-1,after=-1;
+      list(state.data?.snapshots).forEach((entry,i)=>{if(!Number.isInteger(entry.event_index))return;if(entry.event_index<=index)before=i;else if(after<0&&entry.event_index<=limit)after=i;});
+      for(const [snapshotIndex,label] of [[before,"Preceding observation"],[after,"Following observation"]])if(snapshotIndex>=0){
+        const link=node("button",`${label} · snapshot ${snapshotIndex+1}`);link.type="button";
+        link.addEventListener("click",()=>{stopReplay();selectSnapshot(snapshotIndex);state.tab="snapshot";renderInspector();$("inspector").focus({preventScroll:true});});links.append(link);
+      }
+      if(before<0)links.append(node("span","No preceding native snapshot recorded.","muted small"));
+      item.append(heading,choice,words,links);target.append(item);
+    }
+    $("journal-empty").hidden=entries.length>0;
+    text("journal-empty",state.fullHistory?"This recording has no decision notebooks or reasons to display.":"No public journal entries at this point. The initial observation can precede the first decision.");
   }
   function citizensAt(current,includeFormer=true){
     const result=list(current.citizens).filter(object).map(person=>({person,former:false}));
@@ -127,62 +193,94 @@
   }
   function renderEvents(){
     const events=list(state.data?.events),filter=$("event-filter").value;
-    let indexed=events.map((event,index)=>({event,index})).filter(({event})=>filter==="all"||event.kind===filter||(filter==="error"&&["probe_error","error"].includes(event.kind)));
+    const limit=state.fullHistory?events.length-1:eventLimit();
+    let indexed=events.map((event,index)=>({event,index})).filter(({event,index})=>index<=limit&&(filter==="all"||event.kind===filter||(filter==="error"&&["probe_error","error"].includes(event.kind))));
     const matchingCount=indexed.length;
     if(indexed.length>200){const near=indexed.findIndex(item=>item.index>=(state.eventIndex??events.length-1));const start=Math.max(0,Math.min(indexed.length-200,(near<0?indexed.length:near)-100));indexed=indexed.slice(start,start+200);}
-    text("event-count",`${matchingCount} matching events${matchingCount>200?" · showing 200 around the playhead; the full ledger is downloadable":""}`);
+    text("event-count",`${matchingCount} matching events · ${state.fullHistory?"full recording":"through the playhead"}${matchingCount>200?" · showing 200 around the playhead; the full ledger is downloadable":""}`);
     const target=$("event-list");target.replaceChildren();
     for(const {event,index} of indexed){
       const item=node("li"),button=node("button");button.type="button";button.setAttribute("aria-current",String(index===state.eventIndex));
       button.append(node("span",`#${fmt(event.event)}`,"event-number"),node("span",event.kind||"event","event-kind"),node("span",String(eventSummary(event)),"event-text"),node("span",nativeNumber(event.wall_seconds)?`${event.wall_seconds.toFixed(1)} s`:"—","event-time"));
-      button.addEventListener("click",()=>{stopReplay();setFollow(false);state.eventIndex=index;state.tab="event";let nearest=-1;list(state.data?.snapshots).forEach((snap,i)=>{if(snap.event_index!=null&&snap.event_index<=index)nearest=i;});if(nearest>=0)state.index=nearest;render();});
+      button.addEventListener("click",()=>{selectEvent(index);$("inspector").focus({preventScroll:true});});
       item.append(button);target.append(item);
     }
   }
   function renderVideo(){
-    const live=state.videoMode==="live"&&state.stream;
+    const live=!standalone&&state.videoMode==="live"&&state.stream;
     $("live-video").hidden=!live;$("recorded-frame").hidden=true;
     $("frames-mode").setAttribute("aria-pressed",String(state.videoMode==="frames"));$("live-mode").setAttribute("aria-pressed",String(state.videoMode==="live"));
     let frame=null;
-    if(state.videoMode==="frames"){
-      const limit=state.eventIndex??wrapper().event_index;
-      for(const item of list(state.data?.frames))if(limit==null||item.event_index<=limit)frame=item;
+    if(!standalone&&state.videoMode==="frames"){
+      const limit=eventLimit();
+      for(const item of list(state.data?.frames))if(Number.isInteger(item.event_index)&&item.event_index<=limit)frame=item;
       if(frame&&/^\/frames\/[A-Za-z0-9][A-Za-z0-9_.-]*\.(png|jpg|jpeg|webp)$/.test(frame.url)){$("recorded-frame").src=frame.url;$("recorded-frame").hidden=false;}
       else frame=null;
     }
     $("stage-empty").hidden=Boolean(live||frame);
-    text("stage-empty-title",state.videoMode==="live"?"Open a window onto the actual game.":"This point has no recorded game frame.");
-    text("stage-empty-copy",state.videoMode==="live"?"Choose the Dwarf Fortress window in your browser's sharing dialog. The stream stays here, on this computer.":"Native telemetry can be replayed without footage. Connect a live window, or inspect the recorded evidence below.");
-    text("video-label",live?"LIVE · USER-SELECTED WINDOW":frame?"RECORDED GAME FRAME":"NO VIDEO CONNECTED");
-    text("video-note",live?"Live window video is independent of this recording's playhead. Sharing sends no video to this server.":frame?`Actual recorded frame · ${timeLabel(frame.at)}`:"Recorded frames follow the playhead. A shared live window does not rewind.");
+    text("stage-empty-title",standalone?"Game frames are not included in this page.":state.videoMode==="live"?"Open a window onto the actual game.":"This point has no recorded game frame.");
+    text("stage-empty-copy",standalone?"Use the replay controls to follow public words, choices, and native observations. This page does not contact a game, model, or server.":state.videoMode==="live"?"Choose the Dwarf Fortress window in your browser's sharing dialog. The stream stays here, on this computer.":"Native telemetry can be replayed without footage. Connect a live window, or inspect the recorded evidence below.");
+    text("video-label",standalone?"Standalone recording":live?"LIVE · USER-SELECTED WINDOW":frame?"RECORDED GAME FRAME":"NO VIDEO CONNECTED");
+    text("video-note",standalone?"Replay uses only the evidence embedded in this page. No live capture or server polling.":live?"Live window video is independent of this recording's playhead. Sharing sends no video to this server.":frame?`Actual recorded frame · ${timeLabel(frame.at)}`:"Recorded frames follow the playhead. A shared live window does not rewind.");
     $("stop-capture").hidden=!state.stream;$("record-video").hidden=!state.stream||typeof MediaRecorder==="undefined";
     text("capture-button",state.stream?"Choose another window":"Share game window");
   }
-  function renderDownloads(){const target=$("downloads");target.replaceChildren();for(const file of list(state.data?.files)){if(typeof file.url!=="string"||!/^\/evidence\/[A-Za-z0-9_.-]+$/.test(file.url))continue;const link=node("a",file.name);link.href=file.url;link.download=file.name;target.append(link);}}
-  function render(){if(!state.data)return;renderMetrics();renderInspector();renderCitizens();renderPerson();renderEvents();renderVideo();}
+  function embeddedDownloadURL(url){
+    const prefix="data:application/octet-stream;base64,";
+    if(typeof url!=="string"||!url.startsWith(prefix))return false;
+    const encoded=url.slice(prefix.length);
+    if(encoded.length%4!==0)return false;
+    const padding=encoded.endsWith("==")?2:encoded.endsWith("=")?1:0;
+    const body=padding?encoded.slice(0,-padding):encoded;
+    return !/[^A-Za-z0-9+/]/.test(body)&&(padding===0||body.length>0);
+  }
+  function renderDownloads(){
+    const target=$("downloads");target.replaceChildren();
+    for(const file of list(state.data?.files)){
+      if(typeof file.url!=="string"||!(standalone?embeddedDownloadURL(file.url):/^\/evidence\/[A-Za-z0-9_.-]+$/.test(file.url)))continue;
+      if(typeof file.name!=="string"||!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(file.name))continue;
+      const link=node("a",file.name);link.href=file.url;link.download=file.name;
+      if(typeof file.sha256==="string")link.title=`Recorded SHA-256: ${file.sha256}`;
+      target.append(link);
+    }
+    if(!target.childElementCount)target.append(node("span","No downloadable evidence files are available.","muted small"));
+  }
+  function render(){if(!state.data)return;renderMetrics();renderInspector();renderExperiment();renderJournal();renderCitizens();renderPerson();renderEvents();renderVideo();}
+  function acceptData(data){
+    if(!object(data)||!Array.isArray(data.events)||!Array.isArray(data.snapshots))throw new Error("Unrecognized spectator response");
+    const first=!state.data,changed=first||data.revision!==state.data.revision;state.data=data;
+    if(standalone&&first){state.index=data.snapshots.length?0:-1;state.eventIndex=wrapper().event_index??(data.snapshots.length?null:data.events.length?0:null);}
+    else if(state.follow&&changed){state.index=data.snapshots.length-1;state.eventIndex=data.events.length?data.events.length-1:null;}
+    else state.index=Math.min(state.index,data.snapshots.length-1);
+    text("connection",standalone?"Standalone recording · offline":"Local evidence connected");
+    text("origin",standalone?`Standalone recording · ${data.origin?.label||"recorded evidence"}`:data.origin?.label||"Recorded evidence");
+    text("run-title",data.origin?.run_name||"Fortress recording");
+    text("recording-status",data.recording_status==="finished"?"Finished recording":"Open log · no end marker");
+    const latest=data.snapshots[data.snapshots.length-1]?.snapshot||{};text("versions",`DF ${fmt(latest.df_version)} · DFHack ${fmt(latest.dfhack_version)}`);
+    text("record-count",`${data.snapshots.length} snapshots · ${data.events.length} events`);
+    const errors=list(data.errors).map(error=>`${error.source||"Evidence"}${error.line?` line ${error.line}`:""}: ${error.message||"unavailable"}`);
+    if(data.tail_incomplete)errors.push(standalone?"The recording ends with an incomplete event; complete earlier records remain available.":"The final event is still being written; complete earlier records remain available.");
+    $("errors").hidden=!errors.length;text("errors",errors.join("\n"));
+    if(data.origin?.kind==="unknown")announce("This folder has no recognized native experiment or probe markers. Available files are still inspectable.");
+    if(data.origin?.kind==="mock")announce("This is mock simulator evidence, not a native Dwarf Fortress experiment. Its raw records remain inspectable.");
+    if(standalone){
+      const notes=typeof data.standalone_note==="string"&&data.standalone_note.length?[data.standalone_note]:[...list(data.standalone?.omissions),data.standalone?.privacy_notice].filter(value=>typeof value==="string"&&value.length);
+      text("standalone-note",[...new Set(notes)].join("\n"));$("standalone-note").hidden=!notes.length;
+    }
+    if(changed){renderDownloads();render();}
+  }
   async function poll(){
-    if(state.fetching)return;state.fetching=true;
+    if(standalone||state.fetching)return;state.fetching=true;
     try{
       const response=await fetch("/api/run",{cache:"no-store",credentials:"same-origin"});if(!response.ok)throw new Error(`Local server returned ${response.status}`);
-      const data=await response.json();if(!object(data)||!Array.isArray(data.events)||!Array.isArray(data.snapshots))throw new Error("Unrecognized spectator response");
-      const changed=!state.data||data.revision!==state.data.revision;state.data=data;
-      if(state.follow&&changed){state.index=Math.max(0,data.snapshots.length-1);state.eventIndex=data.events.length?data.events.length-1:null;}else state.index=Math.min(state.index,Math.max(0,data.snapshots.length-1));
-      text("connection","Local evidence connected");text("origin",data.origin?.label||"Recorded evidence");text("run-title",data.origin?.run_name||"Fortress recording");
-      text("recording-status",data.recording_status==="finished"?"Finished recording":"Open log · no end marker");
-      const latest=data.snapshots[data.snapshots.length-1]?.snapshot||{};text("versions",`DF ${fmt(latest.df_version)} · DFHack ${fmt(latest.dfhack_version)}`);
-      text("record-count",`${data.snapshots.length} snapshots · ${data.events.length} events`);
-      const errors=list(data.errors).map(error=>`${error.source||"Evidence"}${error.line?` line ${error.line}`:""}: ${error.message||"unavailable"}`);
-      if(data.tail_incomplete)errors.push("The final event is still being written; complete earlier records remain available.");
-      $("errors").hidden=!errors.length;text("errors",errors.join("\n"));
-      if(data.origin?.kind==="unknown")announce("This folder has no recognized native experiment or probe markers. Available files are still inspectable.");
-      if(data.origin?.kind==="mock")announce("This is mock simulator evidence, not a native Dwarf Fortress experiment. Its raw records remain inspectable.");
-      if(changed){renderDownloads();render();}
+      acceptData(await response.json());
     }catch(error){text("connection","Local connection unavailable");text("errors",`${error.message}. Existing evidence remains on screen; retrying locally.`);$("errors").hidden=false;}
     finally{state.fetching=false;}
   }
   function finishRecording(){if(state.recorder&&state.recorder.state!=="inactive")state.recorder.stop();}
   function stopCapture(){finishRecording();const old=state.stream;state.stream=null;if(old)old.getTracks().forEach(track=>track.stop());$("live-video").srcObject=null;renderVideo();}
   async function chooseWindow(){
+    if(standalone)return;
     if(!navigator.mediaDevices?.getDisplayMedia){announce("This browser does not offer window sharing here. Native evidence and recorded frames remain available.");return;}
     try{
       const stream=await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:"window"},audio:false,monitorTypeSurfaces:"exclude",selfBrowserSurface:"exclude",surfaceSwitching:"exclude"});
@@ -193,7 +291,7 @@
     }catch(error){announce(error.name==="NotAllowedError"?"Window sharing was not started.":`Window sharing could not start: ${error.message}`);}
   }
   function recordVideo(){
-    if(!state.stream||typeof MediaRecorder==="undefined")return;
+    if(standalone||!state.stream||typeof MediaRecorder==="undefined")return;
     if(state.recorder&&state.recorder.state!=="inactive"){finishRecording();return;}
     try{
       if(state.recordUrl){URL.revokeObjectURL(state.recordUrl);state.recordUrl=null;}
@@ -208,11 +306,21 @@
   $("play").addEventListener("click",playReplay);$("previous").addEventListener("click",()=>{stopReplay();selectSnapshot(state.index-1);});$("next").addEventListener("click",()=>{stopReplay();selectSnapshot(state.index+1);});
   $("playhead").addEventListener("input",()=>{stopReplay();selectSnapshot(Number($("playhead").value));});$("follow").addEventListener("change",()=>{stopReplay();setFollow($("follow").checked);if(state.follow)selectSnapshot((state.data?.snapshots?.length||1)-1,false);});
   $("speed").addEventListener("change",()=>{if(state.playback){stopReplay();playReplay();}});$("citizen-search").addEventListener("input",renderCitizens);$("include-former").addEventListener("change",renderCitizens);$("event-filter").addEventListener("change",renderEvents);
+  $("full-history").addEventListener("change",()=>{state.fullHistory=$("full-history").checked;renderJournal();renderEvents();});
   document.querySelectorAll("[data-tab]").forEach(button=>button.addEventListener("click",()=>{state.tab=button.dataset.tab;renderInspector();}));
   $("copy-evidence").addEventListener("click",async()=>{try{await navigator.clipboard.writeText($("inspector").textContent);announce("Selected evidence copied to your clipboard.");}catch{announce("Clipboard access is unavailable. Select and copy text from the evidence inspector.");}});
   $("frames-mode").addEventListener("click",()=>{state.videoMode="frames";renderVideo();});$("live-mode").addEventListener("click",()=>{state.videoMode="live";renderVideo();});
   $("choose-window").addEventListener("click",chooseWindow);$("capture-button").addEventListener("click",chooseWindow);$("stop-capture").addEventListener("click",stopCapture);$("record-video").addEventListener("click",recordVideo);
   $("recorded-frame").addEventListener("error",()=>{$("recorded-frame").hidden=true;$("stage-empty").hidden=false;text("stage-empty-title","This frame could not be displayed.");text("video-label","FRAME UNAVAILABLE");});
   window.addEventListener("pagehide",()=>{stopReplay();stopCapture();if(state.recordUrl)URL.revokeObjectURL(state.recordUrl);});
-  poll();setInterval(poll,2000);
+  if(standalone){
+    document.body.dataset.recordingMode="standalone";
+    document.querySelectorAll("[data-live-control],[data-online-only]").forEach(element=>{element.hidden=true;});
+    setFollow(false);text("source-badge","OFFLINE · READ ONLY");
+    text("connection","Standalone recording · offline");text("origin","Standalone recording");
+    text("downloads-note","The available evidence files are embedded in this page. Replay needs no running game, model connection, or local server.");
+    renderVideo();
+    try{acceptData(JSON.parse(embeddedRecording.textContent));}
+    catch(error){text("connection","Standalone recording unavailable");text("errors",`${error.message}. This page remains offline; no server connection will be attempted.`);$("errors").hidden=false;}
+  }else{poll();setInterval(poll,2000);}
 })();

@@ -1,6 +1,7 @@
 """Local spectator replay/security tests; no game, model, or browser is run."""
 
 import base64
+import copy
 import http.client
 from importlib.resources import files
 import json
@@ -10,6 +11,7 @@ import threading
 import pytest
 
 from dfeval.viewer import create_server, load_run
+from dfeval.policies import LEGACY_SYSTEM_PROMPT, SYSTEM_PROMPT
 
 
 def _snapshot(stress=100):
@@ -129,6 +131,168 @@ def test_native_manifest_identifies_pre_snapshot_experiment_without_claiming_gam
     assert result["snapshots"] == [] and result["running"] is None
 
 
+def _record_briefing(root, *, manifest=None, start=None):
+    if manifest is not None:
+        (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    _events(root, [{"event": 0, "kind": "run_start", **(start or {})},
+                   {"event": 1, "kind": "snapshot", "snapshot": _snapshot()}])
+
+
+@pytest.mark.parametrize("prompt", [LEGACY_SYSTEM_PROMPT, SYSTEM_PROMPT, "Saved public briefing.\r\n\tExact spacing: café.\n"])
+def test_experiment_metadata_retains_the_exact_recorded_prompt_and_limits(tmp_path, prompt):
+    policy = {"kind": "ollama", "is_model": True, "model": "recorded-model", "system_prompt": prompt,
+              "options": {"seed": 17, "num_ctx": 32768}}
+    config = {"policy": policy, "scenario": "recorded-scenario", "max_decisions": 3,
+              "max_total_ticks": 3600, "request_timeout": 12.5, "history_decisions": 0,
+              "simulation_fps": None}
+    _record_briefing(tmp_path, manifest={"policy": policy, "config": config}, start={"config": config})
+    state = load_run(tmp_path)
+    metadata = state["experiment"]
+    assert metadata["status"] == "recorded" and metadata["conflicts"] == []
+    assert metadata["policy_kind"] == "ollama" and metadata["is_model"] is True
+    assert metadata["model"] == "recorded-model"
+    assert metadata["system_prompt"] == prompt
+    assert metadata["scenario"] == "recorded-scenario"
+    assert metadata["budgets"] == {"max_decisions": 3, "max_total_ticks": 3600,
+                                  "request_timeout": 12.5, "history_decisions": 0}
+    assert "manifest.json.policy" in metadata["sources"]
+    assert "events.jsonl:run_start.config.policy" in metadata["sources"]
+    assert state["errors"] == []
+
+
+@pytest.mark.parametrize("policy_location", ["config", "run_start"])
+def test_manifestless_native_evidence_uses_its_recorded_start_policy(tmp_path, policy_location):
+    policy = {"kind": "recorded-kind", "system_prompt": "An older recorded objective."}
+    start = {"config": {"max_policy_calls": 2}, "scenario": "older-scenario"}
+    if policy_location == "config":
+        start["config"]["policy"] = policy
+    else:
+        start["policy"] = policy
+    _record_briefing(tmp_path, start=start)
+    metadata = load_run(tmp_path)["experiment"]
+    assert metadata["system_prompt"] == policy["system_prompt"]
+    assert metadata["policy_kind"] == "recorded-kind"
+    assert metadata["model"] is None and metadata["is_model"] is None
+    assert metadata["scenario"] == "older-scenario"
+    assert metadata["budgets"] == {"max_policy_calls": 2}
+    assert all(source.startswith("events.jsonl:run_start") for source in metadata["sources"])
+
+
+def test_absent_briefing_is_unknown_without_current_prompt_or_budget_defaults(recorded_run):
+    metadata = load_run(recorded_run)["experiment"]
+    assert metadata == {"policy_kind": None, "is_model": None, "model": None, "system_prompt": None,
+                        "budgets": {}, "scenario": None, "status": "unknown", "sources": [], "conflicts": []}
+
+
+@pytest.mark.parametrize("difference", ["prompt", "model", "is_model", "nested_setting", "budget", "scenario"])
+def test_conflicting_recorded_briefings_are_unknown_and_explicitly_reported(tmp_path, difference):
+    original = {"policy": {"kind": "ollama", "is_model": True, "model": "model-a",
+                           "system_prompt": "Recorded objective A.", "options": {"seed": 17}},
+                "max_decisions": 3, "scenario": "scenario-a"}
+    changed = copy.deepcopy(original)
+    if difference == "prompt":
+        changed["policy"]["system_prompt"] = "A contradictory objective."
+    elif difference == "model":
+        changed["policy"]["model"] = "model-b"
+    elif difference == "is_model":
+        changed["policy"]["is_model"] = False
+    elif difference == "nested_setting":
+        changed["policy"]["options"]["seed"] = 99
+    elif difference == "budget":
+        changed["max_decisions"] = 4
+    else:
+        changed["scenario"] = "scenario-b"
+    _record_briefing(tmp_path, manifest={"policy": original["policy"], "config": original},
+                     start={"config": changed})
+    result = load_run(tmp_path)
+    metadata = result["experiment"]
+    assert metadata["status"] == "conflicting"
+    assert metadata["conflicts"] == [difference if difference == "scenario" else "budgets" if difference == "budget" else "policy"]
+    assert metadata["system_prompt"] is None and metadata["model"] is None
+    assert metadata["is_model"] is None and metadata["policy_kind"] is None
+    assert metadata["scenario"] is None and metadata["budgets"] == {}
+    assert any("Conflicting recorded experiment metadata" in error["message"] for error in result["errors"])
+
+
+def test_manifest_policy_conflict_and_duplicate_starts_cannot_select_a_briefing(tmp_path):
+    _record_briefing(tmp_path, manifest={"policy": {"system_prompt": "One"},
+                                       "config": {"policy": {"system_prompt": "Two"}}})
+    assert load_run(tmp_path)["experiment"]["status"] == "conflicting"
+    (tmp_path / "manifest.json").unlink()
+    _events(tmp_path, [{"kind": "run_start", "policy": {"system_prompt": "One"}},
+                       {"kind": "run_start", "policy": {"system_prompt": "One"}},
+                       {"kind": "snapshot", "snapshot": _snapshot()}])
+    result = load_run(tmp_path)
+    assert result["experiment"]["status"] == "conflicting"
+    assert result["experiment"]["system_prompt"] is None
+    assert any("Multiple run_start" in error["message"] for error in result["errors"])
+
+
+def test_metadata_does_not_add_connection_credentials_or_host_paths(tmp_path):
+    policy = {"kind": "ollama", "is_model": True, "model": "local-model", "system_prompt": "Recorded briefing.",
+              "endpoint": "http://private-host:18080/api/chat", "base_url": "http://private-host:18080",
+              "api_key": "secret-credential", "api_key_env": "PRIVATE_KEY_ENV",
+              "headers": {"Authorization": "Bearer secret-credential"}, "options": {"num_ctx": 8192}}
+    config = {"policy": policy, "max_decisions": 2, "stop_file": "C:\\private\\STOP",
+              "starting_snapshot_path": "/private/fortress", "host": {"username": "private-user"}}
+    _record_briefing(tmp_path, manifest={"policy": policy, "config": config, "endpoint": policy["endpoint"]})
+    result = load_run(tmp_path)
+    metadata = result["experiment"]
+    serialized = json.dumps(metadata)
+    assert metadata["status"] == "recorded" and metadata["system_prompt"] == "Recorded briefing."
+    assert metadata["budgets"] == {"max_decisions": 2}
+    for private in ("private-host", "secret-credential", "PRIVATE_KEY_ENV", "Authorization", "stop_file",
+                    "private-user", "fortress", "headers", "endpoint", "base_url", "options"):
+        assert private not in serialized
+
+
+@pytest.mark.parametrize("value", [True, -1, 1.5, "12", 10**400])
+def test_invalid_numeric_budget_is_unknown_not_a_fabricated_limit(tmp_path, value):
+    _record_briefing(tmp_path, manifest={"policy": {"system_prompt": "Saved"}, "config": {"max_decisions": value}})
+    result = load_run(tmp_path)
+    assert result["experiment"]["status"] == "invalid"
+    assert result["experiment"]["budgets"] == {}
+    assert result["experiment"]["system_prompt"] is None
+    assert result["errors"]
+
+
+@pytest.mark.parametrize("oversized", ["prompt", "object"])
+def test_oversized_metadata_is_unknown_instead_of_silently_truncated(tmp_path, oversized):
+    from dfeval.viewer import MAX_EXPERIMENT_METADATA_BYTES, MAX_RECORDED_PROMPT_BYTES
+    policy = {"kind": "ollama", "system_prompt": "Saved"}
+    policy["system_prompt" if oversized == "prompt" else "extra"] = "x" * (
+        MAX_RECORDED_PROMPT_BYTES + 1 if oversized == "prompt" else MAX_EXPERIMENT_METADATA_BYTES + 1)
+    _record_briefing(tmp_path, manifest={"policy": policy})
+    result = load_run(tmp_path)
+    assert result["experiment"]["status"] == "invalid"
+    assert result["experiment"]["system_prompt"] is None
+    assert result["errors"]
+
+
+@pytest.mark.parametrize("recording", ["model", "probe"])
+def test_packaged_native_recordings_keep_their_actual_or_unknown_briefing(tmp_path, recording):
+    from dfeval.demo import write_demo
+    exported = write_demo(tmp_path / recording, recording=recording)
+    result = load_run(exported)
+    metadata = result["experiment"]
+    assert result["errors"] == []
+    if recording == "model":
+        original = json.loads((exported / "manifest.json").read_text(encoding="utf-8"))
+        assert metadata["system_prompt"] == original["policy"]["system_prompt"]
+        assert metadata["model"] == original["policy"]["model"]
+        assert metadata["status"] == "recorded"
+    else:
+        assert metadata["status"] == "unknown"
+        assert metadata["system_prompt"] is None and metadata["is_model"] is None
+
+
+def test_non_native_evidence_has_no_experiment_briefing(tmp_path):
+    _events(tmp_path, [{"kind": "run_start", "bridge": "mock", "policy": {"system_prompt": "Mock objective"}}])
+    assert load_run(tmp_path)["experiment"] is None
+    _events(tmp_path, [{"kind": "run_start", "policy": {"system_prompt": "Unrecognized objective"}}])
+    assert load_run(tmp_path)["experiment"] is None
+
+
 @pytest.mark.parametrize("host", ["0.0.0.0", "192.168.1.10", "::", "example.com"])
 def test_public_network_binding_is_rejected(recorded_run, host):
     with pytest.raises(ValueError, match="loopback"):
@@ -217,6 +381,23 @@ def test_game_frames_must_be_allowed_real_image_files(local_server, recorded_run
     assert state["frames"][0]["url"] == "/frames/0001.png"
 
 
+def test_explicit_frame_omission_preserves_events_without_frame_file_io(recorded_run, monkeypatch):
+    import dfeval.viewer as viewer
+    frame = {"event": 2, "kind": "frame", "path": "frames/unavailable.png", "turn": 0}
+    _events(recorded_run, [{"event": 0, "kind": "run_start"},
+                          {"event": 1, "kind": "snapshot", "snapshot": _snapshot()}, frame])
+    original = viewer._safe_file
+    def no_frame_io(root, relative):
+        assert not relative.startswith("frames/"), "Frame assets must not be inspected in this mode"
+        return original(root, relative)
+    monkeypatch.setattr(viewer, "_safe_file", no_frame_io)
+    result = load_run(recorded_run, include_frames=False)
+    assert result["frames"] == []
+    assert result["events"][-1] == frame
+    assert len(result["snapshots"]) == 1
+    assert result["errors"] == []
+
+
 def test_symlinked_evidence_and_frames_are_rejected(local_server, recorded_run):
     outside = recorded_run.parent / "outside.json"
     outside.write_text('{"private": true}')
@@ -230,9 +411,21 @@ def test_symlinked_evidence_and_frames_are_rejected(local_server, recorded_run):
 
 
 def test_static_ui_has_no_remote_assets_or_automatic_capture():
+    from html.parser import HTMLParser
+
+    class Assets(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            for name, value in attrs:
+                if name in {"src", "href", "srcset", "action"} and value:
+                    # A user-clicked source/license link does not load an asset.
+                    if tag == "a" and name == "href" and value == (
+                            "https://github.com/ChromiteExabyte/llm_dwarf_fortress_eval/tree/main/src/dfeval/static"):
+                        continue
+                    assert not value.startswith(("http:", "https:", "//")), (tag, name, value)
+
     html = files("dfeval").joinpath("static", "index.html").read_text(encoding="utf-8")
     script = files("dfeval").joinpath("static", "app.js").read_text(encoding="utf-8")
-    assert "https://" not in html and "http://" not in html
+    Assets().feed(html)
     assert 'fetch("/api/run"' in script
     assert 'getDisplayMedia({video:{displaySurface:"window"},audio:false' in script
     assert 'monitorTypeSurfaces:"exclude"' in script

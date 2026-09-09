@@ -31,7 +31,10 @@ A spectator should be able to answer:
   the result?
 
 The local viewer now displays recorded native observations, actions, citizen
-histories, and evidence downloads. It can follow an active log or replay a
+histories, and evidence downloads. Its public journal puts each original
+notebook entry and action reason in the timeline. The experiment briefing
+shows the exact saved system prompt and budgets; absent or conflicting records
+are reported instead of replaced with today's defaults. It can follow an active log or replay a
 finished recording. Optional user-selected game-window video stays in the
 browser and is separate from the telemetry timeline. The default packaged demo
 contains an actual local model's public brewing decisions, raw citizen
@@ -43,6 +46,28 @@ A public explanation is evidence of what the model said. It is not access to
 hidden reasoning. A nearby action and measurement change do not by themselves
 establish cause and effect.
 
+## A portable application people can inspect
+
+The application has two entry points: the local launcher runs an experiment,
+and the browser spectator lets someone watch or replay it. A completed or
+partial native recording can also be exported as one standalone HTML file.
+That file carries the viewer, public journal, native observations, recorded
+briefing, and original evidence downloads. It works without an installation
+or a running server on the viewing computer. Video is separate and omitted.
+
+This makes the portfolio artifact an inspectable experiment, rather than only
+a screenshot of a final number. A reader can stop at a decision, read what the
+model said, inspect what it had observed, and follow the later game records.
+Earlier replay positions do not automatically reveal later notes. The viewer
+does not infer a philosophy for the model or turn its prose into a care grade.
+
+The next app work should reduce setup friction while keeping the run's start,
+model, settings, and evidence visible. A desktop wrapper is optional packaging;
+it does not replace game agency, reliable measurement, or repeatable starts.
+Game binaries, DFHack, and model weights keep their own licenses and remain
+separate from this GPL project. Exporting raw evidence is a local operation,
+not an automatic publication or privacy scrub.
+
 ## The bounded experiment
 
 The native runner gives a policy a recorded briefing, the deterministic
@@ -53,8 +78,8 @@ interface. Recorded repeats retain their original briefing; historical episodes
 are not relabeled as runs of a new prompt. Full raw snapshots remain in the audit
 logs. Model-facing choices are wait, brew, and finish. The host validates
 arguments, controls tick advancement, records requests/results, and attempts
-pause on exit. Ordinary
-dwarf labor and resource constraints determine whether brewing succeeds.
+pause on exit. Ordinary dwarf labor and resource constraints determine whether
+brewing succeeds.
 
 The software supports explicitly chosen local/cloud compatible model endpoints
 and labeled idle/rule baselines. It does not fall back to a mock or another
@@ -105,7 +130,8 @@ indifference.
 | --- | --- |
 | Native adapter | Bounded observations, pause, tick advancement, and brewing orders implemented |
 | Policy runner | Explicit local/cloud model and idle/rule policies, budgets, stop handling, and event records implemented |
-| Spectator | Local read-only viewing, replay, raw inspection, and optional browser window capture implemented |
+| Spectator | Local read-only viewing, chronological public journal, exact recorded briefing, replay, raw inspection, and optional browser window capture implemented |
+| Standalone recording | Single HTML export with embedded original evidence and source hashes; no viewing-side installation or server; video omitted |
 | Starting saves | Capture, complete inventory/hash verification, backup/restore, and process checks implemented; repeat recipes freeze run/model settings and check the loaded start |
 | Comparison | Native summaries recomputed from events; recorded setup differences reported |
 | Local models and performance | Native Ollama and compatible local/cloud connections; recorded care, game throughput, and model timing exported as JSON, CSV, and Markdown |

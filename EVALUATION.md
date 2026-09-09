@@ -267,6 +267,22 @@ dfeval compare runs/idle-a runs/rule-a --json
 dfeval benchmark-report runs/idle-a runs/rule-a --out reports/comparison
 ```
 
+For a recording someone can inspect without Python or a local server:
+
+```sh
+dfeval export --run runs/idle-a --out runs/idle-a.html
+```
+
+The standalone HTML contains the replay, the model's original public notes,
+the exact recorded briefing, and allowlisted original evidence downloads.
+Later journal entries appear only when the playhead reaches them or the reader
+explicitly enables full history. Missing notes or conflicting briefing records
+are displayed as unknown; the viewer supplies no interpretation or care grade.
+It retains incomplete/failed status, omits video/frame images, and makes no game
+or model calls. Review private prompts, responses, and paths before sharing;
+raw exports are not automatically sanitized. Keep original runs and checkpoints
+for comparisons and repeats. See [export details](docs/benchmarking.md#export-a-standalone-recording).
+
 `compare` accepts distinct native **experiment** directories, not mock ledgers.
 Use original run bundles for comparison; packaged demo excerpts are curated
 inspection material with declared omissions and substitutions. The command

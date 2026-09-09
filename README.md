@@ -82,6 +82,10 @@ touching the game, use `python start.py model-check --provider ollama --model "Y
 The optional spectator is read-only. Its window-video picker requires your
 explicit browser selection and keeps capture local; video is separate from
 native telemetry. Finished runs remain inspectable without a model server.
+The **Public journal** shows the model's original notes and reasons alongside
+the decisions it made. Replay reveals entries through the selected moment;
+you can explicitly show the full recording. **Experiment briefing** displays
+the exact saved system prompt and run budgets, including older prompts.
 
 New runs send the versioned `native-care-v1` observation: deterministic JSON
 with compact tables for repeated needs and stock items. Raw native snapshots
@@ -161,6 +165,27 @@ no screenshots or video. Press Ctrl+C to stop the viewer. Use
 `python start.py demo --recording probe --open` for the earlier 1,200-tick probe,
 or `python start.py demo --out runs/offline-demo` to export the default recording.
 
+## Open a recording as a standalone app
+
+Export any native recording to one HTML file:
+
+```sh
+python start.py demo --out runs/offline-demo
+python start.py export --run runs/offline-demo --out runs/fortress.html --open
+```
+
+After export, double-click `fortress.html` to explore the journal, citizen
+histories, timeline, briefing, and original evidence downloads in a browser.
+Viewing needs no Python, local server, game, model runtime, or internet. The
+file replays recorded evidence; running a new experiment still uses the local
+launcher with separately installed game and model software.
+
+An export contains **original local evidence**, which may include private
+prompts, model responses, and machine paths. Review it before sharing. The
+packaged demo is already a reviewed excerpt; exporting an arbitrary run does
+not sanitize it. Video and frame images are omitted, and incomplete recordings
+remain visibly incomplete. See [standalone export details](docs/benchmarking.md#export-a-standalone-recording).
+
 For a normal package installation, `python -m pip install .` provides the
 equivalent `dfeval` commands: `dfeval setup`, `dfeval benchmark`, and
 `dfeval demo --open`. An environment's Python followed by `-m dfeval` also works.
@@ -175,6 +200,7 @@ equivalent `dfeval` commands: `dfeval setup`, `dfeval benchmark`, and
 | `repeat prepare/run` | Restore a recorded starting site for another model or an explicit idle/rule control |
 | `benchmark-report` | Recompute JSON, CSV, and Markdown reports from recorded native runs |
 | `demo`, `watch` | Inspect recorded native evidence without contacting the game or a model |
+| `export` | Create one standalone HTML recording with journal, replay, and original evidence downloads |
 | `doctor` | Inspect installation files without connecting to the game |
 | `model-check` | Make one synthetic local/cloud model call without contacting the game |
 | `live` | Capture native observations; optional explicit tick/brewing probes |

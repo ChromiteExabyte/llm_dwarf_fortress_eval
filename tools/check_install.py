@@ -107,7 +107,7 @@ _CHECK_IMPORTS = textwrap.dedent("""\
         if not content.strip():
             raise SystemExit('Bundled Lua resource is empty: ' + name)
         resources[name] = len(content)
-    for name in ('index.html', 'style.css', 'app.js'):
+    for name in ('index.html', 'style.css', 'app.js', 'LICENSE.txt'):
         if not package_files.joinpath('static', name).read_bytes().strip():
             raise SystemExit('Bundled spectator resource is empty: ' + name)
     example = json.loads(package_files.joinpath('examples', 'native_probe.json').read_text(encoding='utf-8'))
@@ -152,6 +152,66 @@ _CHECK_SPECTATOR = textwrap.dedent("""\
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+    """)
+
+
+_CHECK_STANDALONE = textwrap.dedent("""\
+    import base64
+    import hashlib
+    from html.parser import HTMLParser
+    import json
+    from pathlib import Path
+    import sys
+
+    class RecordingParser(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=False)
+            self.recording = False
+            self.parts = []
+            self.external = []
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            if tag == 'script':
+                self.recording = attrs.get('id') == 'embedded-recording'
+                if 'src' in attrs:
+                    self.external.append(attrs['src'])
+            if tag == 'link' and attrs.get('rel') == 'stylesheet':
+                self.external.append(attrs.get('href'))
+        def handle_endtag(self, tag):
+            if tag == 'script':
+                self.recording = False
+        def handle_data(self, data):
+            if self.recording:
+                self.parts.append(data)
+
+    output, source = Path(sys.argv[1]), Path(sys.argv[2])
+    parser = RecordingParser()
+    html = output.read_text(encoding='utf-8')
+    parser.feed(html)
+    if 'GNU GENERAL PUBLIC LICENSE' not in html or 'Viewer license' not in html:
+        raise SystemExit('Standalone viewer did not carry its software license')
+    if parser.external:
+        raise SystemExit('Standalone viewer still requires external assets')
+    data = json.loads(''.join(parser.parts))
+    if data.get('origin', {}).get('kind') != 'native_experiment' or len(data.get('snapshots', [])) < 2:
+        raise SystemExit('Standalone viewer did not embed native observations')
+    if len([event for event in data['events'] if event.get('kind') == 'decision']) != 3:
+        raise SystemExit('Standalone viewer lost recorded decisions')
+    if not data.get('experiment', {}).get('system_prompt'):
+        raise SystemExit('Standalone viewer lost the recorded briefing')
+    files = data.get('files', [])
+    if not files or data.get('frames') or not data.get('standalone', {}).get('omissions'):
+        raise SystemExit('Standalone evidence inventory or omissions are missing')
+    prefix = 'data:application/octet-stream;base64,'
+    for evidence in files:
+        if not evidence.get('url', '').startswith(prefix):
+            raise SystemExit('Standalone evidence is not embedded')
+        content = base64.b64decode(evidence['url'][len(prefix):], validate=True)
+        if content != (source / evidence['name']).read_bytes():
+            raise SystemExit('Embedded original evidence bytes changed')
+        if hashlib.sha256(content).hexdigest() != evidence.get('sha256'):
+            raise SystemExit('Embedded evidence hash does not match')
+    print('Installed standalone export and exact embedded evidence verified')
     """)
 
 
@@ -213,6 +273,13 @@ def check_install(wheel: Path) -> None:
         _run("Serve installed native spectator", [
             *python, "-c", _CHECK_SPECTATOR, str(recording), "3",
         ], cwd=working, environment=environment)
+        standalone = working / "fortress 矮人 with spaces.html"
+        _run("Export installed standalone viewer", [
+            *python, "-m", "dfeval", "export", "--run", str(recording), "--out", str(standalone),
+        ], cwd=working, environment=environment)
+        _run("Verify standalone viewer and evidence", [
+            *python, "-c", _CHECK_STANDALONE, str(standalone), str(recording),
+        ], cwd=working, environment=environment)
         probe = working / "native probe"
         _run("Export installed native probe", [
             *python, "-m", "dfeval", "demo", "--recording", "probe", "--out", str(probe),
@@ -268,7 +335,7 @@ def main(argv: list[str] | None = None) -> int:
         print("Installed-wheel smoke check interrupted.", file=sys.stderr)
         return 130
     print(f"Installed-wheel smoke check passed: {wheel.name}")
-    print("Verified isolated imports, Lua and spectator assets, native demo over HTTP, CLI help, and mock re-scoring.")
+    print("Verified isolated imports, Lua and spectator assets, native demo over HTTP, standalone export, CLI help, and mock re-scoring.")
     return 0
 
 

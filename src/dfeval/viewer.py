@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 import ipaddress
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -24,6 +25,14 @@ import webbrowser
 MAX_EVIDENCE_BYTES = 64 * 1024 * 1024
 MAX_FRAME_BYTES = 20 * 1024 * 1024
 MAX_EVENTS = 10000
+MAX_EXPERIMENT_METADATA_BYTES = 64 * 1024
+MAX_RECORDED_PROMPT_BYTES = 32 * 1024
+EXPERIMENT_BUDGET_FIELDS = frozenset({
+    "max_decisions", "ticks_per_decision", "max_total_ticks", "max_policy_calls",
+    "max_bridge_calls", "max_output_tokens", "max_output_bytes", "max_wall_seconds",
+    "request_timeout", "max_input_bytes", "max_snapshot_bytes", "max_log_bytes",
+    "history_decisions", "simulation_fps",
+})
 EVIDENCE_FILES = frozenset({
     "events.jsonl", "manifest.json", "session.json", "status.json", "before.json",
     "after.json", "pause.json", "advance.json", "brew.json", "result.json",
@@ -122,8 +131,149 @@ def _native_snapshot(value: Any) -> bool:
     ))
 
 
-def load_run(run_dir: str | Path) -> dict[str, Any]:
-    """Read complete event records and preserve native values, including nulls."""
+def _experiment_metadata(manifest: dict[str, Any], starts: list[dict[str, Any]],
+                         errors: list[dict[str, Any]]) -> dict[str, Any]:
+    """Expose a small recorded briefing, never a current prompt or inferred goal.
+
+    Connection credentials, endpoints, host paths and arbitrary configuration
+    fields are not copied. The public prompt itself is preserved verbatim.
+    Unknown fields remain null/empty; contradictory records suppress the whole
+    briefing so a spectator cannot mistake a selected version for the evidence.
+    """
+    result: dict[str, Any] = {
+        "policy_kind": None, "is_model": None, "model": None, "system_prompt": None,
+        "budgets": {}, "scenario": None, "status": "unknown", "sources": [], "conflicts": [],
+    }
+    invalid = False
+
+    def reject(source: str, message: str) -> None:
+        nonlocal invalid
+        invalid = True
+        errors.append({"source": source, "message": message})
+
+    def bounded_object(value: Any, source: str) -> dict[str, Any] | None:
+        if value is None:
+            return None
+        try:
+            if not isinstance(value, dict):
+                raise ValueError()
+            encoded = json.dumps(value, ensure_ascii=False, allow_nan=False).encode("utf-8")
+            if len(encoded) > MAX_EXPERIMENT_METADATA_BYTES:
+                raise ValueError()
+        except (ValueError, TypeError, UnicodeError, RecursionError, OverflowError):
+            reject(source, "Recorded experiment metadata is invalid or exceeds the viewer metadata limit; briefing is unknown")
+            return None
+        return value
+
+    def disagree(left: Any, right: Any) -> bool:
+        # Missing/null fields are unknown, rather than evidence of a different
+        # setting. Compare overlapping nested settings without publishing them.
+        if left is None or right is None:
+            return False
+        if isinstance(left, dict) and isinstance(right, dict):
+            return any(disagree(left[key], right[key]) for key in left.keys() & right.keys())
+        if type(left) is bool or type(right) is bool:
+            return type(left) is not type(right) or left != right
+        return left != right
+
+    def conflicting(records: list[tuple[str, dict[str, Any]]]) -> bool:
+        return any(disagree(left, right) for index, (_, left) in enumerate(records)
+                   for _, right in records[index + 1:])
+
+    if len(starts) > 1:
+        result.update(status="conflicting", sources=["events.jsonl:run_start"], conflicts=["run_start"])
+        errors.append({"source": "events.jsonl", "message": "Multiple run_start records make the experiment briefing ambiguous; briefing is unknown"})
+        return result
+    containers = [("manifest.json", manifest)]
+    if starts:
+        containers.append(("events.jsonl:run_start", starts[0]))
+    configs, policies, scenarios = [], [], []
+    for source, container in containers:
+        config = bounded_object(container.get("config"), source + ".config")
+        if config is not None:
+            configs.append((source + ".config", config))
+        for location, record in [(source, container), *([(source + ".config", config)] if config is not None else [])]:
+            if record.get("policy") is not None:
+                result["sources"].append(location + ".policy")
+                policy = bounded_object(record["policy"], location + ".policy")
+                if policy is not None:
+                    policies.append((location + ".policy", policy))
+            if record.get("scenario") is not None:
+                scenarios.append((location + ".scenario", record["scenario"]))
+                result["sources"].append(location + ".scenario")
+    budget_records = []
+    for source, config in configs:
+        recorded = {key: config[key] for key in sorted(EXPERIMENT_BUDGET_FIELDS) if key in config and config[key] is not None}
+        if recorded:
+            result["sources"].append(source)
+            budget_records.append((source, recorded))
+    if conflicting(policies):
+        result["conflicts"].append("policy")
+    if conflicting(budget_records):
+        result["conflicts"].append("budgets")
+    if any(disagree(left, right) for index, (_, left) in enumerate(scenarios) for _, right in scenarios[index + 1:]):
+        result["conflicts"].append("scenario")
+    if result["conflicts"]:
+        result["status"] = "conflicting"
+        errors.append({"source": "experiment", "message": "Conflicting recorded experiment metadata (" +
+                       ", ".join(result["conflicts"]) + "); briefing is unknown"})
+        return result
+
+    def recorded_text(value: Any, source: str, limit: int) -> str | None:
+        if value is None:
+            return None
+        try:
+            if not isinstance(value, str) or len(value.encode("utf-8")) > limit:
+                raise ValueError()
+        except (ValueError, UnicodeError):
+            reject(source, "Recorded experiment text is invalid or exceeds the viewer metadata limit; briefing is unknown")
+            return None
+        return value
+
+    selected: dict[str, Any] = {}
+    for source, policy in policies:
+        for key, limit in (("kind", 128), ("model", 256), ("system_prompt", MAX_RECORDED_PROMPT_BYTES)):
+            value = recorded_text(policy.get(key), source + "." + key, limit)
+            if value is not None:
+                selected.setdefault("policy_kind" if key == "kind" else key, value)
+        value = policy.get("is_model")
+        if value is not None:
+            if type(value) is not bool:
+                reject(source + ".is_model", "Recorded is_model must be a boolean; briefing is unknown")
+            else:
+                selected.setdefault("is_model", value)
+    budgets = {}
+    for source, recorded in budget_records:
+        for key, value in recorded.items():
+            numeric = type(value) in (int, float) if key in {"max_wall_seconds", "request_timeout"} else type(value) is int
+            if not numeric or value < 0 or value > 2**53 - 1 or (type(value) is float and not math.isfinite(value)):
+                reject(source + "." + key, "Recorded experiment budget is invalid or outside the viewer numeric limits; briefing is unknown")
+            else:
+                budgets.setdefault(key, value)
+    for source, value in scenarios:
+        scenario = recorded_text(value, source, 256)
+        if scenario is not None:
+            selected.setdefault("scenario", scenario)
+    if invalid:
+        result["status"] = "invalid"
+        return result
+    selected["budgets"] = budgets
+    if len(json.dumps(selected, ensure_ascii=False, allow_nan=False).encode("utf-8")) > MAX_EXPERIMENT_METADATA_BYTES:
+        reject("experiment", "Recorded briefing exceeds the viewer metadata limit; briefing is unknown")
+        result["status"] = "invalid"
+        return result
+    result.update(selected)
+    if any(result[key] is not None for key in ("policy_kind", "is_model", "model", "system_prompt", "scenario")) or budgets:
+        result["status"] = "recorded"
+    return result
+
+
+def load_run(run_dir: str | Path, *, include_frames: bool = True) -> dict[str, Any]:
+    """Read native values and optionally inspect recorded frame assets.
+
+    Offline exporters can omit frame asset inspection with include_frames=False.
+    The original frame events remain in the returned ledger in either mode.
+    """
     root = _root_directory(run_dir)
     evidence, errors, events, snapshots, frames = [], [], [], [], []
     revision = []
@@ -148,7 +298,7 @@ def load_run(run_dir: str | Path) -> dict[str, Any]:
             snapshots.append({"event": event.get("event"), "at": event.get("at"), "turn": event.get("turn"),
                               "wall_seconds": event.get("wall_seconds"), "snapshot": event["snapshot"], "source": "events.jsonl",
                               "event_index": index})
-        if event.get("kind") == "frame" and isinstance(event.get("path"), str) and FRAME_PATH.fullmatch(event["path"]):
+        if include_frames and event.get("kind") == "frame" and isinstance(event.get("path"), str) and FRAME_PATH.fullmatch(event["path"]):
             try:
                 frame = _safe_file(root, event["path"])
                 if frame.stat().st_size <= MAX_FRAME_BYTES:
@@ -200,11 +350,12 @@ def load_run(run_dir: str | Path) -> dict[str, Any]:
         if isinstance(title, str) and 0 < len(title) <= 256:
             run_name = title
     end = next((event for event in reversed(events) if event.get("kind") in ("run_end", "probe_end")), None)
+    experiment = _experiment_metadata(manifest, starts, errors) if kind in ("native_experiment", "live_probe") else None
     return {"schema_version": 1, "revision": "|".join(revision), "origin": {"kind": kind, "label": label, "run_name": run_name},
             "running": False if end is not None else None,
             "recording_status": "finished" if end is not None else "no_end_marker",
             "end": end, "events": events, "snapshots": snapshots, "frames": frames,
-            "files": evidence, "errors": errors, "tail_incomplete": tail_incomplete}
+            "files": evidence, "errors": errors, "tail_incomplete": tail_incomplete, "experiment": experiment}
 
 
 class ViewerServer(ThreadingHTTPServer):

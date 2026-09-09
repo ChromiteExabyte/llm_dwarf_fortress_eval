@@ -109,7 +109,7 @@ def _package_source(parts: list[str]) -> bool:
             re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*\.py", parts[-1])
         )
     if len(parts) == 3 and parts[1] == "static":
-        return parts[2] in {"index.html", "style.css", "app.js"}
+        return parts[2] in {"index.html", "style.css", "app.js", "LICENSE.txt"}
     if len(parts) == 3 and parts[:2] == ["dfeval", "examples"] and parts[2] in {"native_probe.json", "native_model.json"}:
         return True
     return len(parts) == 4 and parts[1:3] == ["bridge", "lua"] and parts[-1] in {

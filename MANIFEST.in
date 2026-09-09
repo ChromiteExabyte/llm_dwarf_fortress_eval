@@ -4,6 +4,7 @@ include pyproject.toml MANIFEST.in .gitignore .gitattributes
 include start.py
 recursive-include src/dfeval *.py *.lua
 recursive-include src/dfeval/static *.html *.css *.js
+include src/dfeval/static/LICENSE.txt
 include EVALUATION.md
 include docs/model-connections.md docs/fixture-setup.md
 include docs/benchmarking.md

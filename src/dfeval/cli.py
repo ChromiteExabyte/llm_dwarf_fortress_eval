@@ -510,6 +510,32 @@ def cmd_demo(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export(args: argparse.Namespace) -> int:
+    from .standalone import export_standalone
+    try:
+        result = export_standalone(args.run, args.out)
+    except (ValueError, OSError) as exc:
+        print(f"Standalone export: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False, allow_nan=False))
+    else:
+        print(f"Standalone recording: {result['path']}")
+        print("Open this HTML file in a browser; no game, model, or server is needed.")
+        print("It embeds original evidence. Review private prompts and paths before sharing.")
+        for omission in result["omissions"]:
+            print(f"Omitted: {omission}")
+    if args.open:
+        import webbrowser
+        try:
+            opened = webbrowser.open(Path(result["path"]).as_uri())
+        except (OSError, webbrowser.Error):
+            opened = False
+        if not opened:
+            print("Export succeeded; open the HTML file manually.", file=sys.stderr)
+    return 0
+
+
 def cmd_scenario(args: argparse.Namespace) -> int:
     from .scenario import restore_save, snapshot_save, verify_snapshot
     try:
@@ -638,6 +664,13 @@ def main(argv: list[str] | None = None) -> int:
     watch.add_argument("--port", type=int, default=8765)
     watch.add_argument("--open", action="store_true", help="open the spectator in your browser")
     watch.set_defaults(func=cmd_watch)
+
+    export = sub.add_parser("export", help="make a standalone HTML recording to inspect without Python or a server")
+    export.add_argument("--run", required=True, help="existing native run directory")
+    export.add_argument("--out", required=True, help="new .html file outside the run; parent directory must exist")
+    export.add_argument("--open", action="store_true", help="open the exported file in your browser")
+    export.add_argument("--json", action="store_true", help="print export metadata and evidence hashes as JSON")
+    export.set_defaults(func=cmd_export)
 
     report = sub.add_parser("benchmark-report", help="export care, throughput, failures and comparison limits from existing runs")
     report.add_argument("runs", nargs="+")
