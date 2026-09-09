@@ -9,6 +9,7 @@ does not rank dwarf care by computer speed or combine outcomes into a score.
 from __future__ import annotations
 
 import csv
+from collections import Counter
 import hashlib
 import html
 import io
@@ -18,6 +19,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .comparison import MAX_LOG_BYTES, _evidence_json, _read, compare_runs, read_run
+from .action_evidence import audit_action_evidence
 from .policies import DecisionError, validate_decision
 
 
@@ -25,6 +27,7 @@ SCHEMA_VERSION = 1
 MANIFEST_LIMIT = 4 * 1024 * 1024
 NOTES = [
     "Care outcomes are recomputed from native snapshot events; result.json and stored summary scores are ignored.",
+    "Accepted decisions require agreement with the original successful response and unique ordered call records. Recorded decisions, dispatched requests, queued jobs, and native product creation are separate evidence stages.",
     "No care ranking or composite wellbeing score is produced. Hardware speed does not establish better care.",
     "Null in JSON, blank in CSV, and unknown in this report mean unmeasured or invalid, never an imputed zero.",
     "Native decoding tokens/second uses provider-reported generation tokens and generation time. It excludes prompt processing and host overhead.",
@@ -97,7 +100,7 @@ def _public_error(event: dict[str, Any]) -> str | None:
     return _text(error.get("type")) if isinstance(error, dict) else None
 
 
-def _calls(events: list[dict[str, Any]], *, is_model: bool, warn) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def _calls(events: list[dict[str, Any]], *, is_model: bool, action_audit: dict[str, Any], warn) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Associate runner calls by turn, without treating a missing action as invalid."""
     groups: dict[int, dict[str, list[dict[str, Any]]]] = {}
     invalid_decision_events = 0
@@ -118,6 +121,7 @@ def _calls(events: list[dict[str, Any]], *, is_model: bool, warn) -> tuple[list[
             continue
         groups.setdefault(turn, {}).setdefault(kind, []).append(event)
     calls = []
+    audited_turns = {entry["turn"]: entry for entry in action_audit["turns"]}
     for turn, group in groups.items():
         inputs, responses, decisions = (group.get(key, []) for key in ("policy_input", "policy_response", "decision"))
         if len(inputs) != 1 or len(responses) > 1 or len(decisions) > 1:
@@ -134,6 +138,7 @@ def _calls(events: list[dict[str, Any]], *, is_model: bool, warn) -> tuple[list[
                 duration = None
             error_type = _public_error(response) or errors_by_turn.get(turn)
             accepted = False
+            agreement = audited_turns.get(turn, {}).get("decision", {}).get("agreement_verified")
             ordered = (len(inputs) == len(responses) == len(decisions) == 1 and
                        all(_integer(item.get("event")) is not None for item in (inputs[0], responses[0], decisions[0])) and
                        inputs[0]["event"] < responses[0]["event"] < decisions[0]["event"])
@@ -141,11 +146,11 @@ def _calls(events: list[dict[str, Any]], *, is_model: bool, warn) -> tuple[list[
                 try:
                     validate_decision(decisions[0].get("decision"))
                     # Later action failures do not revoke an accepted decision.
-                    accepted = _public_error(response) is None
+                    accepted = _public_error(response) is None and agreement is True
                 except DecisionError:
                     pass
             if decisions and not accepted:
-                warn("A decision record lacks a unique, ordered successful policy exchange; it is not counted as accepted.")
+                warn("A decision record lacks verified agreement with a unique, ordered successful policy response; it is not counted as accepted.")
             if accepted:
                 state = "accepted"
             elif error_type == "DecisionError":
@@ -165,6 +170,7 @@ def _calls(events: list[dict[str, Any]], *, is_model: bool, warn) -> tuple[list[
             calls.append({
                 "turn": turn, "input_event": inputs[index].get("event") if index < len(inputs) else None,
                 "response_event": response.get("event"), "state": state,
+                "response_decision_agreement_verified": agreement,
                 "error_type": error_type, "response_truncated": exchange.get("response_truncated")
                     if type(exchange.get("response_truncated")) is bool else None,
                 "duration_seconds": duration, "completion_tokens": completion, "prompt_tokens": prompt,
@@ -178,6 +184,7 @@ def _calls(events: list[dict[str, Any]], *, is_model: bool, warn) -> tuple[list[
     confirmed_invalid = sum(call["state"] == "invalid" for call in calls)
     unclassified = sum(call["state"] == "unclassified" for call in calls)
     return calls, {"policy_calls": sum(len(group.get("policy_input", [])) for group in groups.values()),
+                   "recorded_decision_events": sum(event.get("kind") == "decision" for event in events),
                    "accepted_decisions": sum(call["state"] == "accepted" for call in calls),
                    "invalid_response_count": confirmed_invalid if not unclassified else None,
                    "confirmed_invalid_response_count": confirmed_invalid,
@@ -186,39 +193,31 @@ def _calls(events: list[dict[str, Any]], *, is_model: bool, warn) -> tuple[list[
                    "invalid_decision_events": invalid_decision_events}
 
 
-def _advance(events: list[dict[str, Any]], *, continuity: bool, warn) -> dict[str, Any]:
+def _advance(events: list[dict[str, Any]], *, continuity: bool, action_audit: dict[str, Any], warn) -> dict[str, Any]:
     records = []
-    # Index adjacent snapshots once, keeping a 64 MiB transcript linear to inspect.
-    following = {}
-    next_snapshot = None
-    for index in range(len(events) - 1, -1, -1):
-        following[index] = next_snapshot
-        if events[index].get("kind") == "snapshot":
-            next_snapshot = events[index].get("snapshot")
-    previous_snapshot = None
-    for index, event in enumerate(events):
-        if event.get("kind") == "snapshot":
-            previous_snapshot = event.get("snapshot")
+    audited_turns = {entry["turn"]: entry for entry in action_audit["turns"]}
+    source_ids = Counter(event.get("event") for event in events if _integer(event.get("event")) is not None)
+    for event in events:
         if event.get("kind") != "action_result" or event.get("operation") != "advance_ticks":
             continue
-        result = event.get("result") if isinstance(event.get("result"), dict) else {}
-        arguments = event.get("arguments") if isinstance(event.get("arguments"), dict) else {}
         duration = _number(event.get("duration_seconds"))
-        elapsed = _integer(result.get("elapsed_ticks"))
-        start, end, requested = (_integer(result.get(key)) for key in
-                                 ("start_absolute_tick", "absolute_tick", "requested_ticks"))
-        before, after = previous_snapshot, following[index]
-        valid = (continuity and not event.get("error") and result.get("paused") is True
-                 and all(value is not None for value in (elapsed, start, end, requested))
-                 and end - start == elapsed == requested == _integer(arguments.get("ticks"))
-                 and isinstance(before, dict) and isinstance(after, dict)
-                 and before.get("absolute_tick") == start and after.get("absolute_tick") == end)
+        turn = event.get("turn")
+        audited = audited_turns.get(turn, {}) if _integer(turn) is not None else {}
+        receipt = audited.get("advance", {})
+        event_id = _integer(event.get("event"))
+        # Use the same configured interval, unique receipt, and surrounding
+        # snapshot checks as the action audit. No separate weaker validator.
+        valid = (continuity and event_id is not None and source_ids[event_id] == 1
+                 and audited.get("event_counts", {}).get("advance_ticks") == 1
+                 and audited.get("event_ids", {}).get("advance_ticks") == [event_id]
+                 and receipt.get("state") == "confirmed" and receipt.get("verified") is True
+                 and audited.get("snapshot_alignment", {}).get("verified") is True)
         if duration is not None and _number(event.get("wall_seconds")) is not None and duration > event["wall_seconds"]:
             duration = None
         if not valid:
-            warn("An advance lacks matching native tick boundaries; its ticks are excluded from simulation throughput.")
+            warn("An advance lacks a unique configured receipt with matching native tick boundaries; its ticks are excluded from simulation throughput.")
         records.append({"event": event.get("event"), "duration_seconds": duration,
-                        "validated_elapsed_ticks": elapsed if valid else None})
+                        "validated_elapsed_ticks": receipt.get("elapsed_ticks") if valid else None})
     ticks = _total(record["validated_elapsed_ticks"] for record in records)
     wall = _total(record["duration_seconds"] for record in records)
     return {"calls": records, "ticks": ticks, "wall_seconds": wall,
@@ -226,7 +225,8 @@ def _advance(events: list[dict[str, Any]], *, continuity: bool, warn) -> dict[st
 
 
 def _performance(run: dict[str, Any], events: list[dict[str, Any]], warn) -> tuple[dict[str, Any], dict[str, Any]]:
-    calls, decisions = _calls(events, is_model=run["policy_config"].get("is_model") is True, warn=warn)
+    calls, decisions = _calls(events, is_model=run["policy_config"].get("is_model") is True,
+                             action_audit=run["action_evidence"], warn=warn)
     endings = [event for event in events if event.get("kind") == "run_end"]
     wall = _number(endings[0].get("wall_seconds")) if len(endings) == 1 and run["complete_record"] else None
     observed_wall = max((event["wall_seconds"] for event in events if _number(event.get("wall_seconds")) is not None), default=None)
@@ -235,7 +235,8 @@ def _performance(run: dict[str, Any], events: list[dict[str, Any]], warn) -> tup
     prompt = _total(call["prompt_tokens"] for call in calls)
     native = {key: _total(call["telemetry"][key] for call in calls) for key in
               ("generation_seconds", "prompt_seconds", "load_seconds", "total_seconds", "completion_tokens", "prompt_tokens")}
-    advance = _advance(events, continuity=run["world_time_continuity_verified"], warn=warn)
+    advance = _advance(events, continuity=run["world_time_continuity_verified"],
+                       action_audit=run["action_evidence"], warn=warn)
     if host["total"] is not None and observed_wall is not None and host["total"] > observed_wall:
         warn("Summed policy-call durations exceed the recorded wall time; aggregate policy time and end-to-end rate are suppressed.")
         host["total"] = None
@@ -284,6 +285,10 @@ def build_report(run_dirs: Iterable[str | Path]) -> dict[str, Any]:
         def warn(message: str) -> None:
             if message not in warnings:
                 warnings.append(message)
+        action_audit = audit_action_evidence(events, run["policy_config"], manifest.get("config", {}))
+        for issue in action_audit["issues"]:
+            warn("Action evidence: " + issue["message"])
+        run = {**run, "action_evidence": action_audit}
         performance, decisions = _performance(run, events, warn)
         policy = run["policy_config"]
         hardware = manifest.get("host") if isinstance(manifest.get("host"), dict) else {}
@@ -420,6 +425,9 @@ def render_csv(report: dict[str, Any]) -> str:
                "initial_drink_stack_units": first["drink"]["stack_units"], "final_drink_stack_units": last["drink"]["stack_units"],
                "jobs_with_confirmed_drink_products": brew["jobs_with_confirmed_drink_products"],
                "confirmed_new_drink_stack_units": brew["confirmed_new_drink_stack_units"], "production_evidence_complete": brew["evidence_complete"],
+               "product_evidence_complete": brew.get("product_evidence_complete"),
+               "product_receipt_linkage": brew.get("receipt_linkage", "unknown"),
+               "action_evidence_verified": run["action_evidence"]["verified"],
                "initial_needs_json": first["needs"], "final_needs_json": last["needs"],
                "initial_unknown_needs_citizens": first["citizens_with_unknown_needs"], "final_unknown_needs_citizens": last["citizens_with_unknown_needs"]}
         for label, sample in (("initial", first), ("final", last)):

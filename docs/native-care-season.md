@@ -54,6 +54,19 @@ These are raw native measurements. The chart and data contain no composite welfa
 
 The model and rule received matching recorded starts and took the same actions, yet their care trajectories differed. **Replay repeatability remains unresolved.** One episode per policy cannot estimate variation across repeated identical runs or identify the cause of this divergence. The endpoint differences do not establish that one policy took better care of the dwarves.
 
+An offline data audit on **2026-09-09 UTC** checked the original model and rule
+recordings again. Both passed exact input/history, response/decision, queue,
+and tick-receipt checks. All 24 logged game requests per arm matched, including
+their preceding observation ticks. Each arm's 125 new drink units linked to
+prior queue receipts without conflicting callbacks, counter errors, or product
+clock errors. Of 13 aligned native samples, only the initial state matched;
+the first observed difference was at tick **20,186,538**, 8,400 ticks after the
+matching start at 20,178,138. That sample contains 47 differing fields,
+including citizen positions, needs, stress, and stocks. This locates a sampled
+difference; it does not locate the first divergent simulation tick or measure
+a noise floor. `dfeval audit MODEL_RUN RULE_RUN --json` reproduces these checks
+when the original ledgers are available.
+
 The model repeated the same public reason on all 12 turns and repeatedly described its activity as “brewing Fish.” That ingredient claim is wrong: accepted queue results and product receipts identify `BREW_DRINK_FROM_PLANT`. The reaction name alone does not establish the plant species. Structurally valid output and successful job execution therefore coexist with an inaccurate explanation. The constant brew schedule also leaves sensitivity to changing game state unproven.
 
 ## Context, caching and runtime

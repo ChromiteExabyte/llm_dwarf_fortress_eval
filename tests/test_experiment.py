@@ -113,6 +113,35 @@ def test_rule_brewing_uses_only_explicit_native_arguments(harness):
     assert actions[0]["result"]["completed"] is False
 
 
+def test_runtime_product_summary_preserves_receipts_and_matches_saved_evidence(harness, monkeypatch):
+    run, bridge = harness
+    product = {"id": 1, "session": bridge.session, "epoch": 1,
+               "source": "dfhack.eventful.onReactionComplete", "kind": "native_reaction_product",
+               "reaction": "BREW_DRINK_FROM_PLANT", "job_id": 3, "workshop_id": 8,
+               "worker_id": 1, "absolute_tick": 105, "item_next_id_before": 1000,
+               "item_next_id_after": 1001, "dropped_outputs": 0, "errors": [],
+               "outputs": [{"id": 1000, "item_type": "DRINK", "stack_size": 25, "newly_created": True}]}
+    def observe():
+        products = [copy.deepcopy(product)] if bridge.tick > 100 else []
+        return {**snapshot(bridge.tick), "brewing": {
+            "available": True, "session": bridge.session, "epoch": 1,
+            "events": products, "event_count": len(products), "dropped_events": 0,
+            "error_count": 0, "queued_jobs": len(products)}}
+    def queue_brew(**arguments):
+        return {"workshop_id": arguments["workshop_id"], "queued_jobs": arguments["quantity"],
+                "job_ids": [3], "completed": False, "reaction": "BREW_DRINK_FROM_PLANT"}
+    monkeypatch.setattr(bridge, "observe", observe)
+    monkeypatch.setattr(bridge, "queue_brew", queue_brew)
+    result, events, _ = run(RulePolicy(), ExperimentConfig(
+        max_decisions=1, ticks_per_decision=10, max_total_ticks=10))
+    assert result["ok"] is True
+    assert result["summary"] == summarize_events(events)
+    brewing = result["summary"]["brewing"]
+    assert brewing["confirmed_new_drink_stack_units"] == 25
+    assert brewing["receipt_linkage"] == "verified"
+    assert brewing["evidence_complete"] is True
+
+
 class FixedPolicy(IdlePolicy):
     def __init__(self, decision):
         self.decision = decision

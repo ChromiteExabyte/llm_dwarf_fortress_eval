@@ -270,6 +270,13 @@ def check_install(wheel: Path) -> None:
         _run("Export installed native recording", [
             *python, "-m", "dfeval", "demo", "--out", str(recording),
         ], cwd=working, environment=environment)
+        audited = json.loads(_run("Audit installed native recording", [
+            *python, "-m", "dfeval", "audit", str(recording), "--json",
+        ], cwd=working, environment=environment))
+        if (audited.get("kind") != "native_data_audit" or len(audited.get("runs", [])) != 1
+                or len(audited["runs"][0].get("source_files", [])) != 2
+                or audited["runs"][0].get("action_evidence", {}).get("turn_count") != 3):
+            raise SmokeFailure("Installed audit did not inspect the native recording and its three turns")
         _run("Serve installed native spectator", [
             *python, "-c", _CHECK_SPECTATOR, str(recording), "3",
         ], cwd=working, environment=environment)
@@ -335,7 +342,7 @@ def main(argv: list[str] | None = None) -> int:
         print("Installed-wheel smoke check interrupted.", file=sys.stderr)
         return 130
     print(f"Installed-wheel smoke check passed: {wheel.name}")
-    print("Verified isolated imports, Lua and spectator assets, native demo over HTTP, standalone export, CLI help, and mock re-scoring.")
+    print("Verified isolated imports, Lua and spectator assets, native data audit, demo over HTTP, standalone export, CLI help, and mock re-scoring.")
     return 0
 
 

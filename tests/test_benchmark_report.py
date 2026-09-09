@@ -42,6 +42,8 @@ def record(root, *, model="test-model", complete=True, final_drink=12):
         {"kind": "policy_input", "observation": first, "history": [], "wall_seconds": 2},
         {"kind": "policy_response", "duration_seconds": 10, "wall_seconds": 12, "error": None,
          "exchange": {"usage": {"completion_tokens": 100, "prompt_tokens": 200}, "response_truncated": False,
+                      "response_text": json.dumps({"choices": [{"finish_reason": "stop", "message": {
+                          "role": "assistant", "content": json.dumps({"action": "wait", "reason": "test", "notebook": ""})}}]}),
                       "telemetry": {"source": "llama.cpp", "completion_tokens": 80, "prompt_tokens": 200,
                                     "generation_seconds": 4, "prompt_seconds": 2, "load_seconds": 1,
                                     "total_seconds": 7}}},
@@ -199,6 +201,45 @@ def test_orphan_or_out_of_order_decisions_do_not_inflate_acceptance(tmp_path):
     assert run["decisions"]["policy_calls"] == 0
 
 
+@pytest.mark.parametrize("missing", [False, True])
+def test_acceptance_requires_agreement_with_original_response(tmp_path, missing):
+    source = record(tmp_path / "source")
+    events = events_at(source)
+    if missing:
+        events[3]["exchange"].pop("response_text")
+    else:
+        events[4]["decision"]["reason"] = "A claim the model never made"
+    write_events(source, events)
+    run = reports.build_report([source])["runs"][0]
+    assert run["decisions"]["recorded_decision_events"] == 1
+    assert run["decisions"]["accepted_decisions"] == 0
+    assert run["decisions"]["unclassified_response_count"] == 1
+    expected = None if missing else False
+    assert run["action_evidence"]["turns"][0]["decision"]["agreement_verified"] is expected
+    assert run["action_evidence"]["verified"] is expected
+
+
+def test_confirmed_policy_acceptance_is_distinct_from_native_dispatch(tmp_path):
+    source = record(tmp_path / "source")
+    events = events_at(source)
+    events = events[:5] + [events[-1]]
+    events[-1].update(outcome="budget_exhausted", detail="max_total_ticks")
+    write_events(source, events)
+    run = reports.build_report([source])["runs"][0]
+    assert run["decisions"]["accepted_decisions"] == 1
+    assert run["action_evidence"]["turns"][0]["dispatch"]["state"] == "not_dispatched"
+
+
+def test_recorded_decision_count_preserves_unusable_turns(tmp_path):
+    source = record(tmp_path / "source")
+    events = events_at(source)
+    events[4]["turn"] = None
+    write_events(source, events)
+    decisions = reports.build_report([source])["runs"][0]["decisions"]
+    assert decisions["recorded_decision_events"] == 1
+    assert decisions["accepted_decisions"] == 0
+
+
 def test_historical_baseline_decision_validation_error_is_classified(tmp_path):
     source = record(tmp_path / "source")
     events = events_at(source)
@@ -252,6 +293,27 @@ def test_simulation_rates_require_valid_boundaries_and_measured_duration(tmp_pat
     write_events(source, events)
     run = reports.build_report([source])["runs"][0]
     assert run["performance"]["advance"]["ticks_per_second"] is None
+
+
+@pytest.mark.parametrize("mutation", ["duplicate_receipt", "changed_interval"])
+def test_simulation_throughput_uses_unique_configured_action_evidence(tmp_path, mutation):
+    source = record(tmp_path / "source")
+    events = events_at(source)
+    if mutation == "duplicate_receipt":
+        events.insert(6, copy.deepcopy(events[5]))
+        write_events(source, events)
+    else:
+        manifest = json.loads((source / "manifest.json").read_text())
+        manifest["config"]["ticks_per_decision"] = 600
+        events[0]["config"] = manifest["config"]
+        write_events(source, events)
+        (source / "manifest.json").write_text(json.dumps(manifest))
+    run = reports.build_report([source])["runs"][0]
+    assert run["action_evidence"]["verified"] is False
+    advance = run["performance"]["advance"]
+    assert advance["ticks_per_second"] is None
+    assert advance["ticks"]["total"] is None
+    assert all(call["validated_elapsed_ticks"] is None for call in advance["calls"])
 
 
 def test_multiple_runs_reuse_comparability_checks_without_ranking(tmp_path):

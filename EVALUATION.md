@@ -123,19 +123,31 @@ rules. A queued job or a disappearing job ID alone does not prove completed
 brewing. No arbitrary Lua, DFHack commands, filesystem paths, shell commands,
 or browser tools are accepted through the model's decision schema.
 
-Native snapshots now include `brewing` evidence from DFHack's reaction-product
-callbacks. Each event links a session-queued job to newly allocated output item
-IDs. The care summary counts new drink items and their recorded stack units;
-returned barrels, stock changes, and job disappearance do not count as production.
-Missing hooks, dropped events or outputs, unknown quantities, and measurement
-errors remain visible. Software tests cover the hooks against fake DF objects;
+Native snapshots include `brewing` evidence from DFHack's reaction-product
+callbacks. The summary checks newly allocated item IDs, cumulative callback/drop
+counters, and repeated records. Identical references within one callback count
+once; conflicting callback versions or separate callbacks claiming to create
+the same item cannot silently supply an authoritative total. A product timestamp
+cannot exceed the native clock of the snapshot where it first appears.
+
+`product_evidence_complete` describes the callback, counter, quantity, and clock
+evidence. `evidence_complete` additionally requires verified linkage to an earlier
+successful `queue_brew` receipt for the same session, epoch, job, and workshop.
+Snapshot-only linkage and missing snapshot clocks remain unknown; contradictory
+records are flagged separately. Unambiguous native item values remain inspectable
+with qualifications, while conflicts suppress aggregate production units.
+Returned barrels, stock changes, and job disappearance do not prove drink
+production, job completion, or cancellation. Missing hooks, dropped records,
+unknown quantities, and measurement errors remain visible.
+
+Software tests cover the hooks against fake DF objects;
 the [native model trial](docs/native-loop-proof.md) also verified real-game
 production from model-queued jobs. The default model demo retains those product
 receipts. The optional older `demo --recording probe` has no product evidence,
 which remains unknown.
 
 For disposable test saves, the separate [operator fixture script](docs/fixture-setup.md)
-can prepare a still and inputs before scoring. Its setup actions are outside the
+can prepare a still and inputs before a run. Its setup actions are outside the
 model interface and must be declared in the scenario. Preserve the original and
 capture the prepared, fully saved and stopped copy before comparing policies.
 
@@ -312,9 +324,55 @@ There is no composite wellbeing score.
 `benchmark-report` exports care measurements and execution rates to
 `benchmark.json`, `runs.csv`, and `README.md`, including failed or incomplete
 recordings with their limitations. It contacts neither game nor model and
-recomputes results from native events. It does not restore saves or run a model
+recomputes results from native events. Each run includes `action_evidence` with
+per-turn response, decision, request, and receipt checks. The accepted-decision
+count requires agreement with the original recorded response, not just a valid
+decision object. Native queue acceptance still does not establish product
+creation or job completion. The exporter does not restore saves or run a model
 sweep. See [measurement definitions](docs/benchmarking.md#read-care-and-speed-separately)
 before comparing simulation throughput or token rates.
+
+## Audit the recorded evidence
+
+Inspect one original native recording, or compare two, without running the game,
+contacting a model, or changing the source files:
+
+```sh
+dfeval audit runs/model-a --json
+dfeval audit runs/model-a runs/model-b --json
+```
+
+Omit `--json` for a compact text report. From a checkout, use
+`python start.py audit` with the same arguments. The audit captures bounded copies
+of `manifest.json` and `events.jsonl`, reports their byte counts and SHA-256
+hashes, and performs its checks on those same bytes. It rereads the originals
+before returning and rejects detected changes. These hashes identify inspected
+bytes; they do not authenticate an author or prove unobserved game state.
+
+For a supported recorded input contract, checks reconstruct the exact projected
+observation and public decision/notebook history, verify input bytes and hashes,
+and compare the request's saved briefing, model, schema, and declared request-body
+settings. The action checks follow the original response through the recorded
+decision, dispatched arguments, queue acknowledgement, requested/elapsed ticks,
+and surrounding snapshot clocks. Product evidence is checked separately under
+the rules above. Missing or unsupported proof remains qualified; contradictions
+identify disagreement in records, not an accusation of deliberate tampering.
+The audit supplies no care score or philosophical verdict.
+
+With two runs, the report distinguishes matching decision actions, matching
+game requests at preceding snapshot ticks, and matching full public decisions.
+Identical game requests can still follow different model inputs because reasons
+and notebooks form part of later history. Native samples align only at unique,
+matching `absolute_tick` values. The report lists the first differing sampled
+state, changed field paths, the preceding equal sample when available, and
+unmatched or ambiguous ticks. It uses the native-state comparison projection:
+UI/pause, former-citizen and brewing history, and FPS override bookkeeping are
+excluded from this state comparison.
+
+This locates a difference in recorded samples, not the exact first simulation
+tick that diverged or its cause. Matching sampled states or repeated action
+sequences do not prove determinism, estimate a noise floor, or establish a model
+effect. No missing interval is filled in, and historical records are not rewritten.
 
 Repeat runs across multiple declared starting saves before making comparative
 claims. Earlier evidence includes a Windows native probe, a synthetic local
@@ -325,7 +383,7 @@ model actions, zero elapsed ticks, and confirmed final pauses. See the
 
 The subsequent [native loop trial](docs/native-loop-proof.md) exercised a local
 Qwen2.5-1.5B-Instruct model for three autonomous brewing actions and exactly
-3,600 ticks. Two queued jobs completed, with callbacks confirming 50 new drink
+3,600 ticks. Two queued jobs produced drink, with callbacks confirming 50 new drink
 stack units; final pause and original FPS-cap restoration were confirmed. After
 restoring the captured checkpoint, Qwen2.5-0.5B-Instruct passed the initial-state
 guard before inference. It repeated its public reason until the response hit

@@ -1,16 +1,20 @@
 from dataclasses import asdict
+import copy
 import hashlib
 import json
 
 import pytest
 
-from dfeval.comparison import (COMPARISON_FIELDS, _evidence_json, _reported_fps, compare_runs,
-                               initial_observation_fingerprint, render_comparison_report)
+from dfeval.comparison import (COMPARISON_FIELDS, _evidence_json, _model_input_contract, _reported_fps,
+                               comparable_native_state, compare_runs, initial_observation_fingerprint,
+                               read_run, render_comparison_report)
 from dfeval.experiment import ExperimentConfig, run_experiment
 from dfeval.live import PROTOCOL_VERSION
 from dfeval.model_observation import (MODEL_OBSERVATION_VERSION, model_input_bytes,
                                       project_observation, projection_contract)
-from dfeval.policies import DecisionError, IdlePolicy, json_bytes
+from dfeval.local_models import OllamaPolicy
+from dfeval.policies import (ChatCompletionsPolicy, DecisionError, IdlePolicy, LEGACY_SYSTEM_PROMPT,
+                             SYSTEM_PROMPT, json_bytes)
 
 
 def snapshot(tick=100, drink=10):
@@ -131,6 +135,304 @@ def test_model_input_version_declarations_must_agree(tmp_path):
     report = compare_runs([first, second])
     assert not report["recorded_setup_matches"]
     assert any("Model observation version" in issue for issue in report["comparability_issues"])
+
+
+def model_contract_record(root, *, provider="ollama", prompt=SYSTEM_PROMPT, history_limit=2,
+                          call_caps=(512, 512, 256)):
+    """Recorded three-turn fixture; constructing a policy never contacts a server."""
+    record(root)
+    if provider == "ollama":
+        policy = OllamaPolicy(model="recorded-model", system_prompt=prompt).public_config()
+    elif provider == "cloud":
+        policy = ChatCompletionsPolicy(mode="cloud", model="recorded-model", system_prompt=prompt,
+                                       endpoint="https://models.example/v1/chat/completions",
+                                       api_key_env="DFEVAL_TEST_KEY").public_config()
+    else:
+        policy = ChatCompletionsPolicy(mode="local", model="recorded-model", system_prompt=prompt).public_config()
+    manifest = json.loads((root / "manifest.json").read_text())
+    config = manifest["config"]
+    config.update(policy=policy, model_observation_version=MODEL_OBSERVATION_VERSION,
+                  history_decisions=history_limit, max_output_tokens=sum(call_caps) or 1,
+                  max_decisions=max(1, len(call_caps)), max_total_ticks=1200 * len(call_caps))
+    manifest.update(policy=policy, model_observation_version=MODEL_OBSERVATION_VERSION,
+                    model_observation=projection_contract())
+    events = [{"kind": "run_start", "turn": 0, "config": config},
+              {"kind": "snapshot", "turn": 0, "snapshot": snapshot()}]
+    decisions = []
+    for turn, cap in enumerate(call_caps, 1):
+        seen = project_observation(events[-1]["snapshot"])
+        history = copy.deepcopy(decisions[-history_limit:]) if history_limit else []
+        body = model_input_bytes(seen, history)
+        request = {"model": policy["model"], "messages": [
+            {"role": "system", "content": prompt}, {"role": "user", "content": body.decode()}], "stream": False}
+        if provider == "ollama":
+            request.update(format=policy["response_format"]["json_schema"]["schema"],
+                           options={**policy["options"], "num_predict": cap},
+                           keep_alive=policy["keep_alive"], think=policy["think"])
+        else:
+            request.update(response_format=policy["response_format"], **{policy["token_limit_field"]: cap})
+        decision = {"action": "wait", "reason": f"Public reason {turn}", "notebook": f"Public note {turn}"}
+        message = {"role": "assistant", "content": json.dumps(decision)}
+        response = ({"message": message, "done": True, "done_reason": "stop"} if provider == "ollama" else
+                    {"choices": [{"message": message, "finish_reason": "stop"}]})
+        response_text = json.dumps(response)
+        events.extend([
+            {"kind": "policy_input", "turn": turn, "observation": seen, "history": history,
+             "model_observation_version": MODEL_OBSERVATION_VERSION, "input_bytes": len(body),
+             "input_sha256": hashlib.sha256(body).hexdigest()},
+            {"kind": "policy_response", "turn": turn, "error": None, "duration_seconds": 0.1,
+             "exchange": {"request": request, "response_text": response_text,
+                          "response_bytes": len(response_text.encode()), "response_truncated": False,
+                          "reserved_output_tokens": cap}},
+            {"kind": "decision", "turn": turn, "decision": copy.deepcopy(decision)},
+            {"kind": "action_result", "turn": turn, "operation": "advance_ticks", "arguments": {"ticks": 1200},
+             "result": {"paused": True, "elapsed_ticks": 1200, "requested_ticks": 1200,
+                        "start_absolute_tick": 100 + (turn - 1) * 1200, "absolute_tick": 100 + turn * 1200}},
+            {"kind": "snapshot", "turn": turn, "snapshot": snapshot(100 + turn * 1200)},
+        ])
+        decisions.append(decision)
+    events.append({"kind": "run_end", "turn": len(call_caps), "outcome": "budget_exhausted",
+                   "detail": "max_decisions" if call_caps else "max_wall_seconds", "pause_confirmed": True})
+    for index, event in enumerate(events):
+        event.update(event=index, at="2026-09-05T12:00:00+00:00", wall_seconds=float(index))
+    (root / "manifest.json").write_text(json.dumps(manifest))
+    write_events(root, events)
+    return root
+
+
+def contract_at(root):
+    manifest = json.loads((root / "manifest.json").read_text())
+    warnings = []
+    version, verified = _model_input_contract(manifest, manifest["config"], manifest["policy"], events_at(root), warnings.append)
+    assert version == MODEL_OBSERVATION_VERSION
+    return verified, warnings
+
+
+@pytest.mark.parametrize("provider", ["ollama", "chat_completions", "cloud"])
+@pytest.mark.parametrize("prompt", [SYSTEM_PROMPT, LEGACY_SYSTEM_PROMPT])
+@pytest.mark.parametrize("history_limit", [0, 1, 2])
+def test_model_contract_accepts_recorded_briefings_and_tightened_call_limits(tmp_path, provider, prompt, history_limit):
+    root = model_contract_record(tmp_path / "source", provider=provider, prompt=prompt, history_limit=history_limit)
+    assert contract_at(root) == (True, [])
+    assert read_run(root)["model_input_contract_verified"] is True
+
+
+@pytest.mark.parametrize("change", ["fabricated", "reordered", "future", "too_many", "missing"])
+def test_rehashed_history_must_come_from_prior_accepted_decisions(tmp_path, change):
+    root = model_contract_record(tmp_path / "source", history_limit=1 if change == "too_many" else 2)
+    events = events_at(root)
+    seen = next(event for event in events if event["kind"] == "policy_input" and event["turn"] == 3)
+    decisions = [event["decision"] for event in events if event["kind"] == "decision"]
+    if change == "fabricated":
+        seen["history"][0]["notebook"] = "This notebook was never accepted."
+    elif change == "reordered":
+        seen["history"].reverse()
+    elif change == "future":
+        seen["history"][-1] = decisions[2]
+    elif change == "too_many":
+        seen["history"] = decisions[:2]
+    else:
+        seen["history"] = []
+    body = model_input_bytes(seen["observation"], seen["history"])
+    seen.update(input_bytes=len(body), input_sha256=hashlib.sha256(body).hexdigest())
+    response = next(event for event in events if event["kind"] == "policy_response" and event["turn"] == 3)
+    response["exchange"]["request"]["messages"][1]["content"] = body.decode()
+    write_events(root, events)
+    verified, warnings = contract_at(root)
+    assert verified is False
+    assert any("preceding accepted decisions" in warning for warning in warnings)
+
+
+@pytest.mark.parametrize("change", ["system", "model", "message_order", "extra_message", "extra_field",
+                                   "temperature", "seed", "context", "boolean_number", "format", "stream", "cap"])
+def test_declared_model_request_settings_cannot_be_replaced(tmp_path, change):
+    root = model_contract_record(tmp_path / "source")
+    events = events_at(root)
+    request = next(event for event in events if event["kind"] == "policy_response")["exchange"]["request"]
+    if change == "system":
+        request["messages"][0]["content"] = "A different objective."
+    elif change == "model":
+        request["model"] = "another-model"
+    elif change == "message_order":
+        request["messages"].reverse()
+    elif change == "extra_message":
+        request["messages"].append({"role": "user", "content": "Extra instructions"})
+    elif change == "extra_field":
+        request["tools"] = []
+    elif change in ("temperature", "seed"):
+        request["options"][change] = 1
+    elif change == "boolean_number":
+        request["options"]["temperature"] = False
+    elif change == "context":
+        request["options"]["num_ctx"] *= 2
+    elif change == "format":
+        request["format"] = {"type": "object"}
+    elif change == "stream":
+        request["stream"] = True
+    else:
+        request["options"]["num_predict"] = 513
+    write_events(root, events)
+    verified, warnings = contract_at(root)
+    assert verified is False
+    assert any("declared provider settings" in warning for warning in warnings)
+
+
+def test_compatible_request_cannot_change_token_limit_field_or_exceed_remaining_budget(tmp_path):
+    for change in ("field", "remaining"):
+        root = model_contract_record(tmp_path / change, provider="chat_completions")
+        events = events_at(root)
+        response = [event for event in events if event["kind"] == "policy_response"][-1]
+        request = response["exchange"]["request"]
+        if change == "field":
+            request["max_completion_tokens"] = request.pop("max_tokens")
+        else:
+            request["max_tokens"] = 257  # Below the per-call cap, but above the 256 remaining tokens.
+        write_events(root, events)
+        assert contract_at(root)[0] is False
+
+
+def test_tightened_transport_limit_does_not_refund_the_runner_token_reservation(tmp_path):
+    root = model_contract_record(tmp_path / "source")
+    events = events_at(root)
+    responses = [event for event in events if event["kind"] == "policy_response"]
+    responses[0]["exchange"]["request"]["options"]["num_predict"] = 128
+    write_events(root, events)
+    assert contract_at(root) == (True, [])
+    responses[-1]["exchange"]["request"]["options"]["num_predict"] = 300
+    write_events(root, events)
+    # The runner still reserved 512 on turn one; only 256 remain on turn three.
+    assert contract_at(root)[0] is False
+
+
+def test_missing_request_for_an_accepted_model_decision_is_unknown(tmp_path):
+    root = model_contract_record(tmp_path / "source")
+    events = events_at(root)
+    next(event for event in events if event["kind"] == "policy_response")["exchange"].pop("request")
+    write_events(root, events)
+    verified, warnings = contract_at(root)
+    assert verified is None
+    assert any("lacks recorded request evidence" in warning for warning in warnings)
+
+
+@pytest.mark.parametrize("has_response", [False, True])
+def test_failed_call_without_request_evidence_remains_unknown_without_new_repeat_blocker(tmp_path, has_response):
+    root = model_contract_record(tmp_path / "source")
+    events = events_at(root)
+    input_index = next(index for index, event in enumerate(events) if event["kind"] == "policy_input")
+    kept = events[:input_index + 1]
+    if has_response:
+        kept.append({"kind": "policy_response", "turn": 1, "error": {"type": "PolicyError", "message": "Unavailable"},
+                     "exchange": {"request": None, "response_text": None, "response_bytes": 0}})
+    kept.extend([{"kind": "error", "turn": 1, "type": "PolicyError", "message": "Unavailable"},
+                 {"kind": "run_end", "turn": 1, "outcome": "error", "pause_confirmed": True}])
+    for index, event in enumerate(kept):
+        event.update(event=index, at="2026-09-05T12:00:00+00:00", wall_seconds=float(index))
+    write_events(root, kept)
+    assert contract_at(root) == (None, [])
+    warnings = read_run(root)["warnings"]
+    assert all(warning == "The event stream records an action, run, or cleanup failure."
+               or warning.startswith("Terminal outcome is ") for warning in warnings)
+
+
+def test_zero_call_model_recording_has_no_verified_input_claim(tmp_path):
+    root = model_contract_record(tmp_path / "source", call_caps=())
+    assert contract_at(root) == (None, [])
+
+
+def test_unknown_system_prompt_is_not_filled_from_todays_default(tmp_path):
+    root = model_contract_record(tmp_path / "source")
+    manifest = json.loads((root / "manifest.json").read_text())
+    manifest["policy"].pop("system_prompt")
+    manifest["config"]["policy"].pop("system_prompt")
+    (root / "manifest.json").write_text(json.dumps(manifest))
+    assert contract_at(root)[0] is None
+
+
+def test_history_cannot_be_established_by_a_decision_that_differs_from_its_response(tmp_path):
+    root = model_contract_record(tmp_path / "source")
+    events = events_at(root)
+    next(event for event in events if event["kind"] == "decision")["decision"]["notebook"] = "Never generated."
+    write_events(root, events)
+    verified, warnings = contract_at(root)
+    assert verified is False
+    assert any("cannot establish accepted public history" in warning for warning in warnings)
+
+
+def brew_contract_record(root):
+    model_contract_record(root, call_caps=(512,))
+    events = events_at(root)
+    decision = {"action": "brew", "workshop_id": 9, "quantity": 1,
+                "reason": "A recorded request for brewing.", "notebook": "Inspect the consequences."}
+    next(event for event in events if event["kind"] == "decision")["decision"] = decision
+    exchange = next(event for event in events if event["kind"] == "policy_response")["exchange"]
+    envelope = json.loads(exchange["response_text"])
+    envelope["message"]["content"] = json.dumps(decision)
+    exchange.update(response_text=json.dumps(envelope), response_bytes=len(json.dumps(envelope).encode()))
+    index = next(index for index, event in enumerate(events) if event.get("operation") == "advance_ticks")
+    events.insert(index, {"kind": "action_result", "turn": 1, "operation": "queue_brew",
+                          "arguments": {"workshop_id": 9, "quantity": 1},
+                          "result": {"workshop_id": 9, "queued_jobs": 1, "job_ids": [71],
+                                     "completed": False, "reaction": "BREW_DRINK_FROM_PLANT"}})
+    for index, event in enumerate(events):
+        event.update(event=index, at="2026-09-05T12:00:00+00:00", wall_seconds=float(index))
+    write_events(root, events)
+    return root
+
+
+def test_contradictory_dispatch_qualifies_comparison_even_when_input_and_response_agree(tmp_path):
+    left, right = [brew_contract_record(tmp_path / name) for name in ("reference", "contradiction")]
+    assert read_run(left)["action_evidence_verified"] is True
+    events = events_at(right)
+    next(event for event in events if event.get("operation") == "queue_brew")["arguments"]["workshop_id"] = 10
+    write_events(right, events)
+    report = compare_runs([left, right])
+    assert report["runs"][1]["model_input_contract_verified"] is True
+    assert report["runs"][1]["action_evidence_verified"] is False
+    assert report["recorded_setup_matches"] is False
+    assert any("response/action evidence contains contradictions" in issue for issue in report["comparability_issues"])
+
+
+def test_failed_native_dispatch_remains_unknown_without_a_new_repeat_blocking_warning(tmp_path):
+    root = brew_contract_record(tmp_path / "source")
+    events = events_at(root)
+    queue_index = next(index for index, event in enumerate(events) if event.get("operation") == "queue_brew")
+    kept = events[:queue_index + 1]
+    kept[-1].pop("result")
+    kept[-1]["error"] = {"type": "LiveBridgeError", "message": "Native queue call failed."}
+    kept.extend([{"kind": "error", "turn": 1, "type": "LiveBridgeError", "message": "Native queue call failed."},
+                 {"kind": "run_end", "turn": 1, "outcome": "error", "pause_confirmed": True}])
+    for index, event in enumerate(kept):
+        event.update(event=index, at="2026-09-05T12:00:00+00:00", wall_seconds=float(index))
+    write_events(root, kept)
+    checked = read_run(root)
+    assert checked["model_input_contract_verified"] is True
+    assert checked["action_evidence_verified"] is None
+    assert all(warning == "The event stream records an action, run, or cleanup failure."
+               or warning.startswith("Terminal outcome is ") for warning in checked["warnings"])
+
+
+def test_comparable_native_state_keeps_historical_hash_and_is_an_independent_tree():
+    raw = snapshot()
+    raw.update(ui_focus="dwarfmode/Default", known_former_citizens=[{"id": 9}],
+               brewing={"session": "private", "epoch": 7, "events": [{"id": 12}], "queued_jobs": [5],
+                        "event_count": 1, "dropped_events": 0, "error_count": 0, "last_error": None,
+                        "notes": "session bookkeeping", "reaction": "native-reaction", "future_measurement": [2, 1]},
+               simulation_fps={"effective": 10000.0, "graphics_cap": 50, "original": 100,
+                               "requested": 10000, "original_graphics_cap": 50, "override_active": True,
+                               "restore_error": None, "capture_error": None, "restore_reason": "test"})
+    expected = snapshot()
+    expected.pop("paused")
+    expected.update(brewing={"reaction": "native-reaction", "future_measurement": [2, 1]},
+                    simulation_fps={"effective": 10000.0, "graphics_cap": 50})
+    historical_bytes = json.dumps(expected, sort_keys=True, ensure_ascii=True, allow_nan=False,
+                                  separators=(",", ":")).encode()
+    projected = comparable_native_state(raw)
+    assert projected == expected
+    assert initial_observation_fingerprint(raw) == hashlib.sha256(historical_bytes).hexdigest()
+    projected["citizens"][0]["stress"] = 999
+    projected["brewing"]["future_measurement"].reverse()
+    assert raw["citizens"][0]["stress"] == 0
+    assert raw["brewing"]["future_measurement"] == [2, 1]
 
 
 def test_missing_provenance_is_a_comparison_limit(tmp_path):

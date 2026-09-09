@@ -71,15 +71,15 @@ def _reported_fps(value: Any) -> int | None:
     return int(value) if _finite(value) and 1 <= value <= 10000 and value == int(value) else None
 
 
-def initial_observation_fingerprint(snapshot: dict[str, Any]) -> str:
-    """Hash measured initial state, excluding explicitly session-owned metadata.
+def comparable_native_state(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Return independent measured state with the historical fingerprint exclusions.
 
     Native time, roster, timers, needs, item IDs/flags, workshop/jobs and effective
     simulation/graphics caps remain included, as do unrecognized future fields.
     UI focus/pause, former-citizen observation history, product callback history,
-    and FPS override bookkeeping are not saved-world state. This is a comparison
-    fingerprint, not the separate exact-byte initial_snapshot_sha256 integrity
-    hash, and cannot prove that unobserved game state or RNG state is identical.
+    and FPS override bookkeeping are excluded exactly as in the original
+    initial-state fingerprint. Native array order and every other field remain
+    unchanged. This projection cannot verify unobserved game or RNG state.
     """
     if not isinstance(snapshot, dict):
         raise ValueError("Initial native observation must be an object")
@@ -100,6 +100,18 @@ def initial_observation_fingerprint(snapshot: dict[str, Any]) -> str:
                              separators=(",", ":")).encode("utf-8")
     except (ValueError, TypeError, RecursionError, UnicodeError):
         raise ValueError("Initial native observation must contain finite JSON data") from None
+    return json.loads(encoded)
+
+
+def initial_observation_fingerprint(snapshot: dict[str, Any]) -> str:
+    """Hash comparable native state, preserving the historical byte encoding.
+
+    This is distinct from the exact-byte initial_snapshot_sha256 integrity hash
+    and cannot prove identical unobserved game state or RNG state.
+    """
+    comparable = comparable_native_state(snapshot)
+    encoded = json.dumps(comparable, sort_keys=True, ensure_ascii=True, allow_nan=False,
+                         separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -175,7 +187,67 @@ def _read(path: Path, limit: int = MAX_LOG_BYTES) -> bytes:
     return data
 
 
-def _model_input_contract(manifest, config, policy, events, warn):
+def _same_recorded_value(left: Any, right: Any) -> bool:
+    """Compare recorded JSON without allowing booleans to stand in for numbers."""
+    if type(left) is bool or type(right) is bool:
+        return type(left) is type(right) and left == right
+    if isinstance(left, dict) and isinstance(right, dict):
+        return left.keys() == right.keys() and all(_same_recorded_value(left[key], right[key]) for key in left)
+    if isinstance(left, list) and isinstance(right, list):
+        return len(left) == len(right) and all(_same_recorded_value(a, b) for a, b in zip(left, right))
+    return left == right
+
+
+def _recorded_request_contract(request, policy, content, remaining_tokens):
+    """Check declared transport settings; return unknown when declarations lack evidence.
+
+    The known transports always send two text messages and disable streaming.
+    Token reservations may tighten a recorded per-call maximum. Connection
+    headers and timeout values are not in these request bodies and are not
+    invented or treated as independently verified here.
+    """
+    if not isinstance(request, dict):
+        return None, None
+    kind = policy.get("kind")
+    if kind not in ("chat_completions", "ollama"):
+        return None, None
+    if not isinstance(policy.get("model"), str) or not isinstance(policy.get("system_prompt"), str):
+        return None, None
+    expected = {"model": policy["model"], "messages": [
+        {"role": "system", "content": policy["system_prompt"]},
+        {"role": "user", "content": content}], "stream": False}
+    cap = policy.get("max_completion_tokens")
+    if type(cap) is not int or cap < 1 or remaining_tokens is None:
+        return None, None
+    if kind == "chat_completions":
+        field = policy.get("token_limit_field")
+        if field not in ("max_tokens", "max_completion_tokens") or not isinstance(policy.get("response_format"), dict):
+            return None, None
+        requested = request.get(field)
+        expected.update(response_format=policy["response_format"], **{field: requested})
+    else:
+        options = policy.get("options")
+        response_format = policy.get("response_format")
+        schema = response_format.get("json_schema") if isinstance(response_format, dict) else None
+        if (not isinstance(options, dict) or not isinstance(schema, dict) or "schema" not in schema
+                or not {"num_predict", "num_ctx", "temperature", "seed"} <= options.keys()
+                or "think" not in policy or "keep_alive" not in policy):
+            return None, None
+        actual_options = request.get("options")
+        requested = actual_options.get("num_predict") if isinstance(actual_options, dict) else None
+        if type(options["num_predict"]) is not int or options["num_predict"] != cap:
+            return False, None
+        expected.update(format=schema["schema"], options={**options, "num_predict": requested},
+                        keep_alive=policy["keep_alive"], think=policy["think"])
+    reservation = min(cap, remaining_tokens)
+    if type(requested) is not int or not 1 <= requested <= reservation:
+        return False, None
+    # The runner reserves the declared allowance before invoking the policy;
+    # a narrower transport request does not refund that reservation.
+    return _same_recorded_value(request, expected), reservation
+
+
+def _model_input_contract(manifest, config, policy, events, warn, *, action_audit=None):
     """Check a declared projection against raw snapshots; retain legacy records."""
     declarations = [container.get("model_observation_version") for container in (manifest, config, policy)]
     inputs = [event for event in events if event.get("kind") == "policy_input"]
@@ -186,39 +258,118 @@ def _model_input_contract(manifest, config, policy, events, warn):
         warn("Model observation version is missing, unsupported, or inconsistent across recorded declarations.")
         return _version(version), False
     verified = True
+    unknown = False
     if manifest.get("model_observation") != projection_contract():
         warn("Model observation projection declaration disagrees with the recorded version.")
         verified = False
+    if action_audit is None:
+        from .action_evidence import audit_action_evidence
+        action_audit = audit_action_evidence(events, policy, config)
+    decisions_by_turn = {item["turn"]: item["decision"] for item in action_audit["turns"]
+                         if type(item.get("turn")) is int}
+    accepted_by_turn = {turn: decision["value"] for turn, decision in decisions_by_turn.items()
+                        if decision.get("schema_verified") is True
+                        and decision.get("agreement_verified") is True}
+    history = []
+    history_known = True
+    history_limit = config.get("history_decisions")
+    if type(history_limit) is not int or not 0 <= history_limit <= 100:
+        history_limit = None
+        unknown = True
+    remaining_tokens = config.get("max_output_tokens")
+    if type(remaining_tokens) is not int or remaining_tokens < 1:
+        remaining_tokens = None
+    is_model = policy.get("is_model") is True
     native = None
-    expected_content = None
+    pending = None
+    seen_turns = set()
+
+    def missing_request(call):
+        nonlocal unknown
+        if not is_model or call is None or call["request_checked"]:
+            return
+        unknown = True
+        # A failed/abandoned call is a legitimate outcome, and remains usable
+        # as a repeat source. Missing evidence is not proof that it was sent.
+        if call["turn"] in accepted_by_turn:
+            warn("A successful model call lacks recorded request evidence; its input contract is unknown.")
+
     for event in events:
         if event.get("kind") == "snapshot":
             native = event.get("snapshot")
         elif event.get("kind") == "policy_input":
+            missing_request(pending)
+            turn = event.get("turn")
+            if type(turn) is not int or turn in seen_turns:
+                warn("Policy inputs cannot be associated uniquely with recorded turns.")
+                verified = False
+            if type(turn) is int:
+                seen_turns.add(turn)
+            else:
+                turn = None
+            pending = {"turn": turn, "content": None, "request_checked": False, "response_seen": False}
             try:
                 projected = project_observation(native)
                 encoded = model_input_bytes(projected, event.get("history"))
-                valid = (event.get("observation") == projected and
+                valid = (_same_recorded_value(event.get("observation"), projected) and
                          event.get("model_observation_version") == version and
                          type(event.get("input_bytes")) is int and event["input_bytes"] == len(encoded) and
                          event.get("input_sha256") == hashlib.sha256(encoded).hexdigest())
-                expected_content = encoded.decode("utf-8")
+                pending["content"] = encoded.decode("utf-8")
             except ModelObservationError:
-                valid, expected_content = False, None
+                valid = False
             if not valid:
                 warn("A model policy input or its byte/hash record disagrees with the declared projection of the preceding native snapshot.")
                 verified = False
+            if history_known and history_limit is not None:
+                expected_history = history[-history_limit:] if history_limit else []
+                if not _same_recorded_value(event.get("history"), expected_history):
+                    warn("Recorded policy history does not match the preceding accepted decisions and recorded history limit.")
+                    verified = False
+            else:
+                unknown = True
         elif event.get("kind") == "policy_response":
             exchange = event.get("exchange")
             request = exchange.get("request") if isinstance(exchange, dict) else None
-            if isinstance(request, dict):
-                messages = request.get("messages")
-                if (expected_content is None or not isinstance(messages, list) or len(messages) != 2 or
-                        not isinstance(messages[1], dict) or messages[1].get("role") != "user" or
-                        messages[1].get("content") != expected_content):
-                    warn("A recorded model request does not match the exact canonical policy input.")
+            if not is_model:
+                continue
+            if pending is None or event.get("turn") != pending["turn"] or pending["response_seen"]:
+                warn("A model response lacks a unique preceding policy input in the same turn.")
+                verified = False
+                continue
+            pending["response_seen"] = True
+            if isinstance(request, dict) and pending["content"] is not None:
+                valid, reservation = _recorded_request_contract(request, policy, pending["content"], remaining_tokens)
+                pending["request_checked"] = True
+                if valid is False:
+                    warn("A recorded model request disagrees with the exact messages, model, or declared provider settings and limits.")
                     verified = False
-    return version, verified
+                elif valid is None:
+                    unknown = True
+                if reservation is not None and remaining_tokens is not None:
+                    remaining_tokens -= reservation
+                else:
+                    remaining_tokens = None
+            else:
+                remaining_tokens = None
+        elif event.get("kind") == "decision":
+            turn = event.get("turn") if type(event.get("turn")) is int else None
+            accepted = accepted_by_turn.get(turn)
+            if accepted is not None and _same_recorded_value(accepted, event.get("decision")):
+                history.append(accepted)
+            else:
+                history_known = False
+                unknown = True
+                evidence = decisions_by_turn.get(turn, {})
+                if evidence.get("schema_verified") is False or evidence.get("agreement_verified") is False:
+                    warn("A recorded decision contradicts its response or ordering; it cannot establish accepted public history.")
+                    verified = False
+                else:
+                    warn("A recorded decision lacks verified response agreement; subsequent public history is unknown.")
+    missing_request(pending)
+    if not inputs:
+        unknown = True
+    return version, False if not verified else None if unknown else True
 
 
 def _run(path: str | Path) -> dict[str, Any]:
@@ -333,7 +484,12 @@ def _run(path: str | Path) -> dict[str, Any]:
         warn("Run-start configuration is missing or disagrees with the manifest.")
     if config.get("policy") != policy:
         warn("Policy configuration disagrees between the manifest's policy and run configuration.")
-    model_observation_version, model_input_verified = _model_input_contract(manifest, config, policy, events, warn)
+    from .action_evidence import audit_action_evidence
+    action_audit = audit_action_evidence(events, policy, config)
+    if action_audit["invalid_issue_count"]:
+        warn("Recorded response/action evidence contains contradictions; inspect the action audit.")
+    model_observation_version, model_input_verified = _model_input_contract(
+        manifest, config, policy, events, warn, action_audit=action_audit)
     scenario = config.get("scenario") if isinstance(config.get("scenario"), str) and config["scenario"] else None
     if scenario is None:
         warn("Scenario identity is missing from the recorded configuration.")
@@ -448,6 +604,7 @@ def _run(path: str | Path) -> dict[str, Any]:
         "name": root.name, "policy": label, "policy_config": policy,
         "model_observation_version": model_observation_version,
         "model_input_contract_verified": model_input_verified,
+        "action_evidence_verified": action_audit["verified"],
         "complete_record": coherent, "warnings": warnings, "outcome": outcome, "pause_confirmed": pause,
         "world_time_continuity_verified": continuity,
         "declared_starting_save_sha256": save_hash,

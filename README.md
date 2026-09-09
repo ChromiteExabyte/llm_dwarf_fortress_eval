@@ -165,6 +165,25 @@ no screenshots or video. Press Ctrl+C to stop the viewer. Use
 `python start.py demo --recording probe --open` for the earlier 1,200-tick probe,
 or `python start.py demo --out runs/offline-demo` to export the default recording.
 
+## Audit recorded data
+
+Use original native run directories to inspect the evidence without contacting
+the game or a model:
+
+```sh
+python start.py audit runs/model-a --json
+python start.py audit runs/model-a runs/model-b --json
+```
+
+The audit hashes the captured manifest and log bytes, checks the declared model
+input and public history, and follows responses through decisions, game requests,
+tick receipts, and native product evidence. Unknown evidence and contradictory
+records remain distinct; this supplies no definition or grade of care.
+With two runs, it compares recorded action sequences and identifies the first
+differing native sample at a shared absolute tick. Gaps remain visible; sampled
+differences do not establish determinism, a noise floor, or causality.
+See [the data contract](EVALUATION.md#audit-the-recorded-evidence) for its scope.
+
 ## Open a recording as a standalone app
 
 Export any native recording to one HTML file:
@@ -199,6 +218,7 @@ equivalent `dfeval` commands: `dfeval setup`, `dfeval benchmark`, and
 | `benchmark` | Run the selected local model and export care plus performance reports |
 | `repeat prepare/run` | Restore a recorded starting site for another model or an explicit idle/rule control |
 | `benchmark-report` | Recompute JSON, CSV, and Markdown reports from recorded native runs |
+| `audit` | Check one run's evidence chain, or locate sampled state differences between two runs |
 | `demo`, `watch` | Inspect recorded native evidence without contacting the game or a model |
 | `export` | Create one standalone HTML recording with journal, replay, and original evidence downloads |
 | `doctor` | Inspect installation files without connecting to the game |

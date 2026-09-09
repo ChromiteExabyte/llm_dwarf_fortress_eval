@@ -567,6 +567,18 @@ def cmd_compare(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_audit(args: argparse.Namespace) -> int:
+    from .data_audit import audit_runs, render_audit
+    try:
+        report = audit_runs(args.runs)
+        print(json.dumps(report, indent=2, ensure_ascii=False, allow_nan=False)
+              if args.json else render_audit(report))
+    except (ValueError, OSError) as exc:
+        print(f"Data audit: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         prog="dfeval",
@@ -676,6 +688,11 @@ def main(argv: list[str] | None = None) -> int:
     report.add_argument("runs", nargs="+")
     report.add_argument("--out", required=True, help="new/empty directory for JSON, CSV and Markdown reports")
     report.set_defaults(func=cmd_benchmark_report)
+
+    audit = sub.add_parser("audit", help="verify recorded inputs, responses, game requests and products; compare two native traces")
+    audit.add_argument("runs", nargs="+", help="one native run directory, or two to locate sampled differences")
+    audit.add_argument("--json", action="store_true", help="emit source hashes, per-turn evidence and native field differences")
+    audit.set_defaults(func=cmd_audit)
 
     scenario = sub.add_parser("scenario", help="capture, verify, or restore a reproducible starting save")
     scenario_sub = scenario.add_subparsers(dest="operation", required=True)

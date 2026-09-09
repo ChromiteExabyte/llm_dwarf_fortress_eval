@@ -24,7 +24,7 @@ import time
 from typing import Any, Callable
 import uuid
 
-from .care import summarize_run
+from .care import summarize_events
 from .comparison import initial_observation_fingerprint, validate_initial_expectation
 from .live import LiveBridge, LiveBridgeError, PROTOCOL_VERSION
 from .model_observation import (MODEL_OBSERVATION_VERSION, ModelObservationTooLarge,
@@ -214,6 +214,10 @@ def run_experiment(game_dir: Path | str, policy: Policy, *, config: ExperimentCo
                 "budget_semantics": "output tokens reserve requested limits; observed usage is separate; requested ticks reserve before dispatch"}
     _write_json(out / "manifest.json", manifest)
     snapshots: list[dict[str, Any]] = []
+    # Keep only the evidence needed to link native products to queue receipts.
+    # Snapshot entries share the existing immutable capture; no second full log
+    # or provider transcript is accumulated in memory.
+    summary_evidence: list[dict[str, Any]] = []
     history: list[dict[str, Any]] = []
     budgets: dict[str, Any] = {"decisions": 0, "policy_calls": 0, "bridge_calls": 0,
         "requested_ticks": 0, "reported_elapsed_ticks": 0,
@@ -248,6 +252,10 @@ def run_experiment(game_dir: Path | str, policy: Policy, *, config: ExperimentCo
             stream.flush()
             log_bytes += len(encoded)
             event_number += 1
+            if kind == "snapshot":
+                summary_evidence.append(event)
+            elif kind == "run_start" or (kind == "action_result" and fields.get("operation") == "queue_brew"):
+                summary_evidence.append(copy.deepcopy(event))
 
         def check() -> None:
             if stop_path.exists():
@@ -301,8 +309,9 @@ def run_experiment(game_dir: Path | str, policy: Policy, *, config: ExperimentCo
             snapshot = bridge_call("observe")
             if len(json_bytes(snapshot)) > config.max_snapshot_bytes:
                 raise _Stop("budget_exhausted", "max_snapshot_bytes; snapshot was not presented to the policy")
-            emit("snapshot", snapshot=snapshot)
-            snapshots.append(copy.deepcopy(snapshot))
+            captured = copy.deepcopy(snapshot)
+            emit("snapshot", snapshot=captured)
+            snapshots.append(captured)
             if len(snapshots) == 1:
                 manifest.update(initial_snapshot_sha256=hashlib.sha256(json_bytes(snapshot)).hexdigest(),
                                 initial_observation_sha256=initial_observation_fingerprint(snapshot),
@@ -528,7 +537,7 @@ def run_experiment(game_dir: Path | str, policy: Policy, *, config: ExperimentCo
                         emit("cleanup_error", terminal=True, type=type(exc).__name__, message=str(exc)[:2000])
                         if outcome not in ("error", "cancelled"):
                             outcome, detail = "error", "Simulation FPS restoration failed"
-            summary = summarize_run(snapshots)
+            summary = summarize_events(summary_evidence)
             result = {"schema_version": 1, "outcome": outcome, "detail": detail,
                       "ok": outcome in ("finished", "budget_exhausted") and pause_confirmed and error_record is None and speed_restored is not False,
                       "summary": summary, "budgets": budgets, "pause_confirmed": pause_confirmed,

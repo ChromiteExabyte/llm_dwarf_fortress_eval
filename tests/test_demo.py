@@ -8,7 +8,7 @@ import re
 import pytest
 
 from dfeval.demo import serve_demo, write_demo
-from dfeval.care import summarize_brewing
+from dfeval.care import summarize_brewing, summarize_events
 from dfeval.viewer import load_run
 
 
@@ -102,7 +102,8 @@ def test_default_demo_preserves_real_model_actions_and_native_product_linkage(tm
                          for text in (reason, reason, third_reason)]
     queued = [event["result"]["job_ids"] for event in replay["events"] if event.get("operation") == "queue_brew"]
     assert queued == [[5], [6], [9]]
-    brewing = summarize_brewing(snapshots)
+    assert summarize_brewing(snapshots)["receipt_linkage"] == "unknown"
+    brewing = summarize_events(replay["events"])["brewing"]
     assert brewing["evidence_complete"] is True
     assert brewing["jobs_with_confirmed_drink_products"] == brewing["confirmed_drink_product_items"] == 2
     assert brewing["confirmed_new_drink_stack_units"] == 50
