@@ -1,4 +1,4 @@
-"""One local entry point: python start.py [setup|models|benchmark|demo|...]."""
+"""One local entry point: python start.py [setup|play|inspect|legacy]."""
 
 from pathlib import Path
 import os
@@ -13,17 +13,11 @@ def main(argv=None):
     # The native benchmark uses only the standard library. Running the checkout
     # directly needs no pip, virtual environment, model SDK, or package install.
     sys.path.insert(0, str(root / "src"))
-    from dfeval.cli import main as run
+    from dfeval.play_cli import main as run
     original_directory = Path.cwd()
     try:
         os.chdir(root)
         arguments = list(sys.argv[1:] if argv is None else argv)
-        if not arguments:
-            if not (root / "dfeval.local.toml").exists():
-                code = run(["setup"])
-                if code:
-                    return code
-            arguments = ["benchmark"]
         return run(arguments)
     finally:
         os.chdir(original_directory)
